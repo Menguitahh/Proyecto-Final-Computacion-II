@@ -1,30 +1,19 @@
-# Informe de Diseño del Sistema de Chat
+```markdown
+# Informe de Diseño: FitBot
 
-## 1. Modelo Cliente-Servidor
+## Arquitectura General
+Se optó por una arquitectura **Cliente-Servidor**. Esta decisión permite desacoplar la interfaz de usuario (`client.py`) de la lógica principal y la conexión con la IA (`server.py`). Esto facilita el mantenimiento y permite que múltiples usuarios accedan al servicio de forma concurrente, manteniendo sesiones de chat individuales y aisladas.
 
-Se optó por una arquitectura cliente-servidor centralizada. Un único programa **servidor** actúa como punto central de comunicación, gestionando las conexiones y retransmitiendo los mensajes. Los **clientes** son programas ligeros que solo necesitan saber la dirección del servidor para conectarse.
+## Modelo de Concurrencia: `asyncio`
+Para gestionar las conexiones simultáneas de múltiples clientes, se utiliza la librería `asyncio` de Python. Un servidor de chatbot es una aplicación inherentemente limitada por I/O (espera de red y de la respuesta de la IA). `asyncio` es ideal para este escenario, ya que maneja miles de conexiones con un solo hilo de manera eficiente y con un bajo consumo de recursos, a diferencia de modelos más pesados como `multithreading` o `multiprocessing`.
 
-**Justificación**: Este modelo es simple de implementar y gestionar. Centralizar la lógica en el servidor facilita la adición de nuevas características (como el chatbot, registro de mensajes, etc.) sin tener que modificar los clientes.
+## Modelo de Inteligencia Artificial: Llama 3 Local
+La decisión clave del proyecto fue utilizar un **modelo de lenguaje grande (LLM) de código abierto (Llama 3) ejecutándose localmente** a través de LM Studio, en lugar de depender de APIs de pago como OpenAI o Google.
 
-## 2. Protocolo de Comunicación: Sockets sobre TCP
+**Justificación:**
+1.  **Privacidad:** Los datos de fitness y salud son sensibles. Al procesar todo localmente, se garantiza que ninguna conversación privada del usuario se envía a servidores de terceros.
+2.  **Costo:** Elimina por completo los costos operativos por uso de API, haciendo la aplicación verdaderamente gratuita después de la configuración inicial.
+3.  **Control y Disponibilidad:** No depende de la disponibilidad de un servicio externo ni de sus posibles límites de cuota.
 
-La comunicación se basa en sockets TCP/IP.
-
-**Justificación**: Se eligió **TCP** por su fiabilidad. A diferencia de UDP, TCP garantiza la entrega ordenada y sin errores de los paquetes de datos, lo cual es fundamental para una aplicación de chat donde el orden y la integridad de los mensajes son críticos.
-
-## 3. Modelo de Concurrencia: I/O Asíncrona con `asyncio`
-
-Para manejar múltiples clientes simultáneamente, se implementó un modelo de concurrencia basado en I/O asíncrona utilizando la librería `asyncio` de Python.
-
-**Justificación**: Un servidor de chat es una aplicación eminentemente "I/O-bound" (limitada por la entrada/salida), ya que pasa la mayor parte de su tiempo esperando a que los clientes envíen datos por la red.
-
-Se evaluaron las siguientes alternativas:
-
-* **Multithreading**: Aunque es una opción viable, el Global Interpreter Lock (GIL) de Python limita el paralelismo real de los hilos. Además, la gestión de locks y la sincronización entre hilos puede añadir complejidad.
-* **Multiprocessing (`fork`)**: Proporciona paralelismo real al eludir el GIL, pero cada proceso consume una cantidad significativa de memoria. Escalar a un gran número de clientes sería ineficiente.
-
-**`asyncio` fue la elección final** porque maneja miles de conexiones concurrentes en un único hilo con un consumo de recursos mínimo. Utiliza un bucle de eventos para gestionar las operaciones de red de forma no bloqueante, lo cual es la solución más eficiente y escalable para este tipo de problema.
-
-## 4. Estructura del Código
-
-El código se separó en `server.py` y `client.py` para mantener una clara separación de responsabilidades, facilitando el mantenimiento y la depuración.
+## Gestión de Estado
+Cada cliente conectado tiene una sesión independiente en el servidor. El estado de la conversación (el historial de mensajes) se almacena en un diccionario en la memoria del servidor, asociado al `writer` de cada cliente. Esto permite que el chatbot tenga contexto sobre la conversación actual para dar respuestas coherentes y personalizadas.

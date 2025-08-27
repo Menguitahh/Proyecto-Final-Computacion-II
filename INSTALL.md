@@ -1,11 +1,13 @@
-# Instalación y Despliegue del Chatbot
+# Guía de Instalación de FitBot
 
-Este proyecto requiere Python 3.7 o superior.
+Sigue estos pasos para configurar y lanzar la aplicación completa.
 
-## 1. Clonar el Repositorio
+## 1. Prerrequisitos
+- Python 3.9 o superior.
+- Git.
+- **LM Studio:** Descargalo desde [lmstudio.ai](https://lmstudio.ai/).
 
-Para obtener el código, clona este repositorio usando git:
-
+## 2. Clonar el Repositorio
 ```bash
-git clone https://github.com/Menguitahh/Proyecto-Final-Computacion-II
+git clone <URL_DE_TU_REPOSITORIO>
 cd <NOMBRE_DEL_DIRECTORIO>

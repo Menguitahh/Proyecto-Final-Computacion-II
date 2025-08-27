@@ -32,28 +32,18 @@ async def main():
     try:
         reader, writer = await asyncio.open_connection(server_host, server_port)
     except ConnectionRefusedError:
-        print(f"Error: No se pudo conectar a {server_host}:{server_port}. ¿El servidor está corriendo?")
+        print(f"Error: No se pudo conectar al servidor. ¿Está corriendo?")
         return
 
-    nickname = input("Por favor, introduce tu nombre de usuario: ")
+    nickname = input("Por favor, introduce tu nombre para la sesión: ")
     writer.write(f"{nickname}\n".encode())
     await writer.drain()
-
-    response = await reader.read(1024)
-    response_msg = response.decode().strip()
-    
-    if "ERROR" in response_msg:
-        print(response_msg)
-        writer.close()
-        await writer.wait_closed()
-        return
-
-    print(response_msg)
-    print("--- Ya puedes conversar con FitBot. Escribe '/quit' para salir. ---")
-    print("Tú: ", end="")
     
     receive_task = asyncio.create_task(receive_messages(reader))
     send_task = asyncio.create_task(send_messages(writer))
+
+    print("--- Conectado a FitBot. Escribe '/quit' para salir. ---")
+    print("Tú: ", end="")
 
     done, pending = await asyncio.wait(
         [receive_task, send_task],
