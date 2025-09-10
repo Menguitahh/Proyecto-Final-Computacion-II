@@ -1,3 +1,14 @@
+# Entornos
+.venv/
+venv/
+__pycache__/
+*.pyc
 
+# SO
+.DS_Store
 
-venv
+# Archivos grandes de medios (no versionar)
+static/*.mp4
+
+# Entorno
+.env
