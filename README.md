@@ -14,18 +14,20 @@ Además, el proyecto incluye un servidor TCP asíncrono opcional para cumplir co
 
 ## Uso Básico
 1.  Asegurate de que el servidor de IA local (LM Studio) esté corriendo y que el modelo esté cargado (ver `INSTALL.md`).
-2.  Inicia la API con `uvicorn server:app --reload`.
+2.  Inicia la API con `uvicorn fitbot.app:app --reload`.
 3.  Abre `http://127.0.0.1:8000/` en tu navegador.
 4.  ¡Empezá a chatear con FitBot! Hacé preguntas sobre rutinas, ejercicios o nutrición.
 
-Nota: el antiguo cliente de consola fue retirado en favor de la interfaz web.
+Nota: podés seguir usando `uvicorn server:app --reload` por compatibilidad.
 
 ## Modo TCP (Sockets)
 Para ejecutar el servidor TCP puro (sin WebSocket) y probar concurrencia con `asyncio`:
 
 ```bash
-python tcp_server.py [HOST] [PUERTO]
-# Ejemplo
+# Ejecutar como módulo (recomendado)
+python -m fitbot.tcp.server 127.0.0.1 9000
+
+# Compatibilidad: script en la raíz
 python tcp_server.py 127.0.0.1 9000
 ```
 
@@ -36,7 +38,7 @@ Podés conectarte con `nc` (netcat) o usando el cliente incluido:
 nc 127.0.0.1 9000
 
 # Con el cliente del repo
-python tcp_client.py 127.0.0.1 9000
+python -m fitbot.tcp.client 127.0.0.1 9000
 ```
 
 Cada conexión mantiene su propio historial en el servidor. El servidor limita el tamaño de los mensajes y recorta el historial para evitar uso excesivo de memoria.

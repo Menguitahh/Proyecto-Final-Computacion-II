@@ -36,7 +36,7 @@ LM_MAX_TOKENS=1500
 
 ## 5. Ejecutar el servidor web
 ```bash
-uvicorn server:app --reload
+uvicorn fitbot.app:app --reload
 ```
 Luego abre tu navegador en:
 ```

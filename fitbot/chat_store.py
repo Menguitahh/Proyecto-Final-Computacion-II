@@ -70,3 +70,4 @@ async def get_history(client_id: str, limit: int = 50, db_path: Optional[str] = 
     # Reverse to chronological
     rows.reverse()
     return [{"role": r[0], "content": r[1]} for r in rows]
+

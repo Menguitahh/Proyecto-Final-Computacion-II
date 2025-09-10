@@ -37,6 +37,7 @@ Tus responsabilidades son:
 No respondas a preguntas que no estén relacionadas con fitness, salud o nutrición.
 """
 
+
 def is_client_available() -> bool:
     """Indica si el cliente de IA está disponible."""
     return client is not None
@@ -61,3 +62,4 @@ def get_ai_trainer_response(conversation_history: List[Dict]) -> str:
     except Exception as e:
         logging.exception("Error al llamar al modelo local: %s", e)
         return "Uff, parece que mis circuitos locales están sobrecargados. Revisa la consola de LM Studio."
+
