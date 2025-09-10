@@ -1,4 +1,4 @@
-/* Variables CSS para estética minimalista estilo Apple */
+﻿/* Variables CSS para estética minimalista estilo Apple */
 :root {
     --primary-blue: #0A84FF; /* iOS Blue */
     --secondary-gray: #3A3A3C; /* iOS Dark Gray */
@@ -51,9 +51,11 @@ body {
     width: auto;
     height: auto;
     transform: translate(-50%, -50%);
-    filter: blur(var(--blur-strong));
+    will-change: transform, filter;
+    backface-visibility: hidden;
+    /* El blur está horneado en el video para reducir carga */
     object-fit: cover;
-    opacity: 0.35;
+    opacity: 0.5; /* subimos opacidad para mostrar más color */
 }
 
 /* Capa oscura sobre el video */
@@ -63,7 +65,8 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.65) 100%);
+    /* aligeramos el overlay para dejar ver más color */
+    background: linear-gradient(180deg, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.55) 100%);
     z-index: -1;
 }
 
@@ -73,10 +76,10 @@ body {
     height: min(92vh, 860px);
     box-shadow: var(--shadow-soft);
     z-index: 1;
-    background-color: var(--bg-dark-card);
-    backdrop-filter: blur(var(--blur-light));
+    background-color: var(--bg-dark-card); /* quitamos backdrop-filter (caro en GPU) */
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
+    position: relative;
 }
 
 /* Cabecera del chat */
@@ -91,16 +94,16 @@ body {
 /* Toggle removido */
 
 .app-title {
-    font-size: clamp(1.1rem, 1.4rem, 1.6rem);
+    font-size: clamp(1.2rem, 1.5rem, 1.7rem);
     line-height: 1.2;
     margin: 0;
-    font-weight: 700;
-    letter-spacing: 0.2px;
+    font-weight: 800;
+    letter-spacing: 0.1px;
 }
 
 .app-subtitle {
-    font-size: 0.9rem;
-    opacity: 0.75;
+    font-size: 0.92rem;
+    opacity: 0.72;
     margin: 0.2rem 0 0 0;
 }
 
@@ -264,7 +267,8 @@ body {
         max-height: 100vh;
         border-radius: 0;
         box-shadow: none;
-    }
+        position: relative;
+}
     .card-header, .card-footer {
         border-radius: 0 !important;
     }
@@ -279,4 +283,69 @@ body {
 }
 
 /* Soporte para áreas seguras en iOS (notches) */
-.chat-container { padding-bottom: env(safe-area-inset-bottom); }
+.chat-container { padding-bottom: env(safe-area-inset-bottom);     position: relative; }
+
+/* Eliminado el modo ahorro: mantenemos video siempre reproduciendo */
+
+/* Respeta preferencias del usuario para reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+    .background-animation-container { display: none; }
+    .chat-container { backdrop-filter: none; background-color: rgba(28, 28, 30, 0.95);     position: relative; }
+}
+
+/* Indicador de estado */
+#status-indicator.badge { font-weight: 600; }
+#status-indicator.ok { background-color: #198754 !important; }
+#status-indicator.down { background-color: #dc3545 !important; }
+#status-indicator.badge { font-weight: 600; }
+#status-indicator.ok { background-color: #198754 !important; }
+#status-indicator.down { background-color: #dc3545 !important; }
+
+/* Header minimalista: acciones ghost y pill de estado */
+.header-actions .btn-ghost {
+    color: #e8e8ea;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 6px 10px;
+    transition: all .2s ease;
+}
+.header-actions .btn-ghost:hover {
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+}
+.status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: #198754; color: #fff; font-weight: 700; font-size: 12px;
+    letter-spacing: .3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    position: relative;
+}
+.status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .9; }
+.status-pill.connecting { background: #0d6efd; }
+.status-pill.connecting::before { animation: pulse 1.2s infinite; }
+.status-pill.down { background: #dc3545; }
+@keyframes pulse { 0% { transform: scale(.9); opacity:.6 } 50% { transform: scale(1.2); opacity:1 } 100% { transform: scale(.9); opacity:.6 } }
+
+/* Tooltip minimal (hover) */
+.status-pill[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: calc(100% + 6px);
+    background: rgba(0,0,0,0.75); color: #fff; font-size: 11px; padding: 4px 8px;
+    border-radius: 6px; white-space: nowrap; pointer-events: none;
+}
+
+/* Panel de perfil (glass minimal) */
+
+
+
+
+.btn-xs { padding: 4px 8px; font-size: .8rem; border-radius: 8px; }
+
+
+/* Botón Ir al final */
+.scroll-bottom-btn { position:absolute; left:50%; transform:translateX(-50%); bottom:84px; padding:8px 12px; border-radius:999px; background:rgba(13,110,253,.9); color:#fff; border:none; font-weight:600; box-shadow:0 6px 18px rgba(0,0,0,.25); cursor:pointer; }
+.scroll-bottom-btn:hover{ filter:brightness(1.05);} 
+
+

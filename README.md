@@ -7,16 +7,16 @@ La aplicación utiliza una arquitectura cliente-servidor (FastAPI + WebSocket) q
 Además, el proyecto incluye un servidor TCP asíncrono opcional para cumplir con el requisito académico de usar sockets TCP crudos y manejar concurrencia con `asyncio`.
 
 ## Características
-- **Conversaciones con IA:** Dialoga en lenguaje natural sobre tus metas de fitness.
-- **Privacidad Total:** El modelo de IA corre en tu máquina local. Tus datos de salud nunca salen de tu computadora.
-- **Gratis y Sin Límites:** Al ser un modelo local, no hay costos por uso ni cuotas de API.
-- **Multi-Cliente:** Múltiples usuarios pueden conectarse y tener sus propias sesiones privadas al mismo tiempo.
+- Conversaciones con IA: dialoga en lenguaje natural sobre tus metas de fitness.
+- Privacidad total: el modelo de IA corre en tu máquina local. Tus datos de salud nunca salen de tu computadora.
+- Gratis y sin límites: al ser un modelo local, no hay costos por uso ni cuotas de API.
+- Multi-cliente: múltiples usuarios pueden conectarse y tener sus propias sesiones privadas al mismo tiempo.
 
-## Uso Básico
-1.  Asegurate de que el servidor de IA local (LM Studio) esté corriendo y que el modelo esté cargado (ver `INSTALL.md`).
-2.  Inicia la API con `uvicorn fitbot.app:app --reload`.
-3.  Abre `http://127.0.0.1:8000/` en tu navegador.
-4.  ¡Empezá a chatear con FitBot! Hacé preguntas sobre rutinas, ejercicios o nutrición.
+## Uso básico
+1. Asegúrate de que el servidor de IA local (LM Studio) esté corriendo y que el modelo esté cargado (ver `INSTALL.md`).
+2. Inicia la API con `uvicorn fitbot.app:app --reload`.
+3. Abre `http://127.0.0.1:8000/` en tu navegador.
+4. ¡Empezá a chatear con FitBot! Hacé preguntas sobre rutinas, ejercicios o nutrición.
 
 Nota: podés seguir usando `uvicorn server:app --reload` por compatibilidad.
 
@@ -42,3 +42,4 @@ python -m fitbot.tcp.client 127.0.0.1 9000
 ```
 
 Cada conexión mantiene su propio historial en el servidor. El servidor limita el tamaño de los mensajes y recorta el historial para evitar uso excesivo de memoria.
+

@@ -11,7 +11,7 @@ async def run_client(host: str, port: int) -> None:
             if not data:
                 print("[Desconectado por el servidor]")
                 break
-            print(data.decode("utf-8", errors="ignore"), end="")
+            print(data.decode("utf-8", errors="replace"), end="")
 
     async def send_task():
         loop = asyncio.get_running_loop()
@@ -20,7 +20,7 @@ async def run_client(host: str, port: int) -> None:
             line = await loop.run_in_executor(None, sys.stdin.readline)
             if not line:
                 break
-            writer.write(line.encode("utf-8", errors="ignore"))
+            writer.write(line.encode("utf-8", errors="replace"))
             await writer.drain()
 
     await asyncio.gather(recv_task(), send_task())

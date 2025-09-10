@@ -31,7 +31,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     session = ChatSession()
 
     async def send_line(line: str) -> None:
-        writer.write((line + "\n").encode("utf-8", errors="ignore"))
+        writer.write((line + "\n").encode("utf-8", errors="replace"))
         await writer.drain()
 
     # Welcome banner
@@ -43,7 +43,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             data = await reader.readline()
             if not data:
                 break
-            msg = data.decode("utf-8", errors="ignore").strip()
+            msg = data.decode("utf-8", errors="replace").strip()
             if not msg:
                 continue
 

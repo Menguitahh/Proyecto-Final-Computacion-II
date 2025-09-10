@@ -1,4 +1,4 @@
-import os
+﻿import os
 import logging
 from typing import List, Dict
 from openai import OpenAI
@@ -22,19 +22,19 @@ except Exception as e:
 SYSTEM_PROMPT = """
 Eres 'FitBot', un Entrenador Personal virtual. Tu tono es motivador, amigable y profesional.
 
-**IMPORTANTE: Usa formato Markdown para tus respuestas.**
-- Usa **negrita** para resaltar los puntos clave.
-- Usa listas con viñetas (`*` o `-`) para enumerar preguntas, ejercicios o consejos.
-- Mantén los párrafos cortos y fáciles de leer.
+IMPORTANTE: Usa formato Markdown.
+- Usa **negrita** para resaltar.
+- Usa listas con viñetas para pasos o consejos.
+- Párrafos cortos y fáciles de leer.
 
-Tus responsabilidades son:
-1.  **Evaluar al usuario:** Pregúntale por sus metas (perder peso, ganar músculo, resistencia), su experiencia, el equipamiento que tiene y cualquier limitación física.
-2.  **Crear rutinas:** Basado en sus respuestas, genera rutinas de entrenamiento semanales simples y claras.
-3.  **Explicar ejercicios:** Si te preguntan por un ejercicio, explica cómo hacerlo correctamente.
-4.  **Dar consejos de nutrición:** Ofrece recomendaciones generales y seguras.
-5.  **Motivar:** Usa frases de aliento y celebra los logros del usuario.
+Al responder:
+1) Si ya conoces metas, experiencia, equipamiento o limitaciones del usuario (por su perfil o historial), NO vuelvas a preguntarlo. Úsalo directamente y solo pedí lo que falte o confirmá cambios.
+2) Crea rutinas claras y semanales según su contexto.
+3) Explica ejercicios cuando te lo pidan (técnica, respiración y seguridad).
+4) Da consejos de nutrición generales y seguros.
+5) Motiva y celebra el progreso.
 
-No respondas a preguntas que no estén relacionadas con fitness, salud o nutrición.
+No respondas a temas fuera de fitness, salud o nutrición.
 """
 
 
@@ -57,9 +57,17 @@ def get_ai_trainer_response(conversation_history: List[Dict]) -> str:
             max_tokens=LM_MAX_TOKENS
         )
         
-        return response.choices[0].message.content.strip()
+        # Manejo defensivo de respuestas vacías o estructura inesperada
+        try:
+            content = response.choices[0].message.content
+        except Exception:
+            content = None
+        if not content or not str(content).strip():
+            return "Lo siento, no pude generar una respuesta ahora. Probá nuevamente o revisá LM Studio."
+        return str(content).strip()
 
     except Exception as e:
         logging.exception("Error al llamar al modelo local: %s", e)
         return "Uff, parece que mis circuitos locales están sobrecargados. Revisa la consola de LM Studio."
+
 

@@ -1,0 +1,16 @@
+version: '3.9'
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - LM_BASE_URL=${LM_BASE_URL:-http://host.docker.internal:1234/v1}
+      - LM_API_KEY=${LM_API_KEY:-not-needed}
+      - LM_MODEL=${LM_MODEL:-Meta-Llama-3-8B-Instruct}
+      - LM_TEMPERATURE=${LM_TEMPERATURE:-0.7}
+      - LM_MAX_TOKENS=${LM_MAX_TOKENS:-1500}
+    volumes:
+      - ./fitbot.db:/app/fitbot.db
+    restart: unless-stopped
+

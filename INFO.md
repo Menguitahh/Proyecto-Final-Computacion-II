@@ -17,3 +17,5 @@ La decisión clave del proyecto fue utilizar un **modelo de lenguaje grande (LLM
 
 ## Gestión de Estado
 Cada cliente conectado mantiene una sesión independiente. El estado de la conversación (historial de mensajes) se guarda en memoria asociado al WebSocket (en `fitbot/app.py`) o a la conexión TCP (en `fitbot/tcp/server.py`). Además, se persiste en SQLite mediante `aiosqlite` (`fitbot/chat_store.py`). El historial se recorta a las últimas 20 intervenciones en memoria para limitar el consumo.
+```
+

@@ -16,7 +16,7 @@ cd <NOMBRE_DEL_DIRECTORIO>
 ## 3. Crear entorno y dependencias
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # En Windows: .venv\\Scripts\\activate
+source .venv/bin/activate   # En Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -r requirements.txt
 ```
@@ -45,5 +45,6 @@ http://127.0.0.1:8000/
 
 ## 6. Solución de problemas
 - "No pude conectarme al motor de IA local": verifica que LM Studio esté corriendo en `LM_BASE_URL` y que el modelo esté cargado.
-- Error de WebSocket/Reconexion: revisa que `uvicorn` siga activo y que no haya firewalls bloqueando `ws://`.
-- Archivos pesados: los videos de fondo no están versionados por defecto; puedes añadir los tuyos en `static/` o usar un fondo estático.
+- Error de WebSocket/Re-conexión: revisa que `uvicorn` siga activo y que no haya firewalls bloqueando `ws://`.
+- Archivos pesados: los videos de fondo pueden no estar versionados; puedes añadir los tuyos en `static/` o usar un fondo estático.
+
