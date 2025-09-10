@@ -7,8 +7,5 @@ __pycache__/
 # SO
 .DS_Store
 
-# Archivos grandes de medios (no versionar)
-static/*.mp4
-
 # Entorno
 .env
