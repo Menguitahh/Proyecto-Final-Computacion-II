@@ -39,7 +39,16 @@ Luego abre tu navegador en:
 http://127.0.0.1:8000/
 ```
 
-## 7. Solución de problemas
+## 7. (Opcional) Servidor TCP sin web
+Para probar la interacción por sockets crudos:
+
+```bash
+python -m fitbot.tcp.server --host 127.0.0.1 --port 9000
+# En otra terminal
+python -m fitbot.tcp.client 127.0.0.1 9000
+```
+
+## 8. Solución de problemas
 - "AI_API_KEY no está configurada": crea el archivo `.env` o exporta la variable en tu entorno de shell.
 - "401 Unauthorized" en los logs: revisa que la API key de Groq sea válida y tenga cuota disponible.
 - Error de WebSocket/Re-conexión: revisa que `uvicorn` siga activo y que no haya firewalls bloqueando `ws://`.

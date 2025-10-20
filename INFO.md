@@ -2,7 +2,7 @@
 # Informe de Diseño: FitBot
 
 ## Arquitectura General
-La aplicación sigue una arquitectura **Cliente-Servidor** sencilla. FastAPI expone una API WebSocket (`fitbot/app.py`) que sirve la SPA del chat (`static/`). Cada navegador abre un WebSocket y mantiene su sesión independiente: el historial de mensajes se guarda en memoria por conexión y se sincroniza en Redis para persistencia.
+La aplicación sigue una arquitectura **Cliente-Servidor** sencilla. FastAPI expone una API WebSocket (`fitbot/app.py`) que sirve la SPA del chat (`static/`). Para el requisito académico también se incluye un servidor TCP puro (`fitbot/tcp/server.py`) que utiliza sockets crudos; ambos modos comparten la misma lógica de negocio y almacenamiento.
 
 ## Modelo de Concurrencia
 Todo el servidor corre sobre `asyncio`. Cada mensaje del usuario desencadena una tarea asíncrona que consume la API de Groq en modo streaming. Mientras llegan los tokens del modelo, se van reenviando al WebSocket del cliente; otros usuarios no quedan bloqueados.

@@ -27,3 +27,20 @@ docker compose up --build
 ```
 
 Esto levanta dos contenedores: Redis (con almacenamiento persistente en `redis-data/`) y la aplicación web en `http://localhost:8000`. Asegurate de exportar `AI_API_KEY` antes de ejecutar el comando si querés pasar la clave sin escribirla en `.env`.
+
+## Modo TCP (sockets sin Web)
+
+Para cumplir con el requisito de sockets “raw” podés interactuar con FitBot vía terminal:
+
+```bash
+# Servidor TCP (puerto por defecto 9000)
+python -m fitbot.tcp.server --host 127.0.0.1 --port 9000
+
+# Cliente mínimo incluido
+python -m fitbot.tcp.client 127.0.0.1 9000
+
+# También podés usar netcat
+nc 127.0.0.1 9000
+```
+
+Cada conexión TCP genera un `client_id` propio, guarda el historial en Redis y usa el mismo modelo Groq que la versión web. Comandos disponibles en el cliente: `/quit` o `/exit` para cortar la sesión.
