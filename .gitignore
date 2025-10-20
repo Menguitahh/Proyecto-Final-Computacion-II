@@ -9,3 +9,6 @@ __pycache__/
 
 # Entorno
 .env
+
+# Legacy SQLite artefacts (ya no se usan)
+fitbot.db*

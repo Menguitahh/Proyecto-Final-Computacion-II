@@ -1,45 +1,29 @@
 # FitBot: Tu Entrenador Personal con IA
 
-**FitBot** es un chatbot con interfaz web diseñado para actuar como un entrenador personal. Utiliza un modelo de lenguaje grande (Llama 3) que se ejecuta localmente en tu computadora para ofrecer conversaciones privadas, personalizadas y sin costo sobre fitness, rutinas y nutrición.
+**FitBot** es un chatbot con interfaz web diseñado para actuar como un entrenador personal. Utiliza un modelo Llama 3 hospedado en Groq (plan gratuito) a través de la API compatible con OpenAI para ofrecer respuestas rápidas sobre fitness, rutinas y nutrición.
 
-La aplicación utiliza una arquitectura cliente-servidor (FastAPI + WebSocket) que permite que múltiples usuarios mantengan conversaciones simultáneas e independientes con el bot.
-
-Además, el proyecto incluye un servidor TCP asíncrono opcional para cumplir con el requisito académico de usar sockets TCP crudos y manejar concurrencia con `asyncio`.
+La aplicación usa FastAPI con WebSocket para sostener múltiples conversaciones simultáneas sin bloquear a otros usuarios, incluso cuando cada uno recibe respuestas en streaming. El estado (usuarios, historial de chat y registros de entrenamiento) se persiste en Redis, lo que simplifica la ejecución en contenedores o despliegues en la nube.
 
 ## Características
 - Conversaciones con IA: dialoga en lenguaje natural sobre tus metas de fitness.
-- Privacidad total: el modelo de IA corre en tu máquina local. Tus datos de salud nunca salen de tu computadora.
-- Gratis y sin límites: al ser un modelo local, no hay costos por uso ni cuotas de API.
-- Multi-cliente: múltiples usuarios pueden conectarse y tener sus propias sesiones privadas al mismo tiempo.
+- Gratis (hasta el límite del plan de Groq) y sin necesidad de hardware especializado.
+- Respuestas en streaming con baja latencia gracias a la infraestructura LPU de Groq.
+- Multi-cliente: múltiples usuarios pueden conectarse y tener sesiones privadas en paralelo.
+- Persistencia en Redis: historial y registros se conservan entre sesiones sin depender de SQLite locales.
 
 ## Uso básico
-1. Asegúrate de que el servidor de IA local (LM Studio) esté corriendo y que el modelo esté cargado (ver `INSTALL.md`).
-2. Inicia la API con `uvicorn fitbot.app:app --reload`.
-3. Abre `http://127.0.0.1:8000/` en tu navegador.
-4. ¡Empezá a chatear con FitBot! Hacé preguntas sobre rutinas, ejercicios o nutrición.
+1. Crea una cuenta gratuita en [Groq](https://console.groq.com/keys) y copia tu clave de API.
+2. Duplica `.env.example` en `.env`, completá `AI_API_KEY` y dejá `AI_MODEL=llama-3.1-8b-instant` (modelo estable sugerido en el plan gratuito de Groq).
+3. Levantá Redis (por ejemplo `docker compose up redis -d` o instala Redis localmente y actualiza `REDIS_URL`).
+4. Instala dependencias y ejecuta `uvicorn fitbot.app:app --reload`.
+5. Abre `http://127.0.0.1:8000/` para empezar a chatear con FitBot.
 
 Nota: podés seguir usando `uvicorn server:app --reload` por compatibilidad.
 
-## Modo TCP (Sockets)
-Para ejecutar el servidor TCP puro (sin WebSocket) y probar concurrencia con `asyncio`:
+## Ejecutar todo con Docker Compose
 
 ```bash
-# Ejecutar como módulo (recomendado)
-python -m fitbot.tcp.server 127.0.0.1 9000
-
-# Compatibilidad: script en la raíz
-python tcp_server.py 127.0.0.1 9000
+docker compose up --build
 ```
 
-Podés conectarte con `nc` (netcat) o usando el cliente incluido:
-
-```bash
-# Con netcat
-nc 127.0.0.1 9000
-
-# Con el cliente del repo
-python -m fitbot.tcp.client 127.0.0.1 9000
-```
-
-Cada conexión mantiene su propio historial en el servidor. El servidor limita el tamaño de los mensajes y recorta el historial para evitar uso excesivo de memoria.
-
+Esto levanta dos contenedores: Redis (con almacenamiento persistente en `redis-data/`) y la aplicación web en `http://localhost:8000`. Asegurate de exportar `AI_API_KEY` antes de ejecutar el comando si querés pasar la clave sin escribirla en `.env`.

@@ -2,20 +2,19 @@
 # Informe de Diseño: FitBot
 
 ## Arquitectura General
-Se optó por una arquitectura **Cliente-Servidor**. La aplicación principal expone una interfaz web (FastAPI + WebSocket en `fitbot/app.py`). Además, se incluye un servidor **TCP puro** (`fitbot/tcp/server.py`) para cumplir con requisitos académicos de manejo de sockets con `asyncio`. En ambos casos, múltiples usuarios pueden acceder de forma concurrente, manteniendo sesiones de chat independientes.
+La aplicación sigue una arquitectura **Cliente-Servidor** sencilla. FastAPI expone una API WebSocket (`fitbot/app.py`) que sirve la SPA del chat (`static/`). Cada navegador abre un WebSocket y mantiene su sesión independiente: el historial de mensajes se guarda en memoria por conexión y se sincroniza en Redis para persistencia.
 
-## Modelo de Concurrencia: `asyncio`
-Para gestionar las conexiones simultáneas de múltiples clientes, se utiliza la librería `asyncio` de Python. Un servidor de chatbot es inherentemente I/O-bound (red y respuesta del LLM). `asyncio` es ideal para este escenario, manejando muchas conexiones en un solo hilo de manera eficiente. Las llamadas bloqueantes al LLM se derivan a un pool de hilos usando `asyncio.to_thread` para no bloquear el event loop.
+## Modelo de Concurrencia
+Todo el servidor corre sobre `asyncio`. Cada mensaje del usuario desencadena una tarea asíncrona que consume la API de Groq en modo streaming. Mientras llegan los tokens del modelo, se van reenviando al WebSocket del cliente; otros usuarios no quedan bloqueados.
 
-## Modelo de Inteligencia Artificial: Llama 3 Local
-La decisión clave del proyecto fue utilizar un **modelo de lenguaje grande (LLM) de código abierto (Llama 3) ejecutándose localmente** a través de LM Studio, en lugar de depender de APIs de pago como OpenAI o Google.
+## Modelo de Inteligencia Artificial
+Se utiliza **Llama 3.1 (llama-3.1-8b-instant)** hospedado por Groq a través de su API compatible con OpenAI. Esta elección reemplaza el antiguo flujo con LM Studio y elimina la necesidad de ejecutar modelos pesados en la computadora del usuario.
 
 **Justificación:**
-1.  **Privacidad:** Los datos de fitness y salud son sensibles. Al procesar todo localmente, se garantiza que ninguna conversación privada del usuario se envía a servidores de terceros.
-2.  **Costo:** Elimina por completo los costos operativos por uso de API, haciendo la aplicación verdaderamente gratuita después de la configuración inicial.
-3.  **Control y Disponibilidad:** No depende de la disponibilidad de un servicio externo ni de sus posibles límites de cuota.
+1. **Costo:** Groq ofrece un plan gratuito con cuota generosa para proyectos personales/educativos.
+2. **Latencia baja:** La infraestructura LPU entrega tokens rápidamente, ofreciendo una experiencia comparable o mejor a un despliegue local sin requerir GPU.
+3. **Simplicidad:** Configurar la API reduce la complejidad de instalación y facilita despliegues en la nube o en equipos modestos.
 
 ## Gestión de Estado
-Cada cliente conectado mantiene una sesión independiente. El estado de la conversación (historial de mensajes) se guarda en memoria asociado al WebSocket (en `fitbot/app.py`) o a la conexión TCP (en `fitbot/tcp/server.py`). Además, se persiste en SQLite mediante `aiosqlite` (`fitbot/chat_store.py`). El historial se recorta a las últimas 20 intervenciones en memoria para limitar el consumo.
+Cada WebSocket mantiene una lista circular con las últimas 20 interacciones para alimentar al modelo y evitar el crecido de memoria. Las conversaciones completas se almacenan en Redis (`fitbot/chat_store.py`) y se recuperan cuando el usuario vuelve a conectarse. El streaming finaliza guardando la respuesta y notificando al cliente con un evento `stream_end`.
 ```
-

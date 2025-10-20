@@ -1,166 +1,127 @@
-import aiosqlite
-import asyncio
-from pathlib import Path
-from typing import List, Dict, Optional, Any
+import json
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = str(BASE_DIR / "fitbot.db")
+import redis.asyncio as redis
 
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-CREATE_SESSIONS = """
-CREATE TABLE IF NOT EXISTS sessions (
-    client_id TEXT PRIMARY KEY,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-"""
+_SESSIONS_KEY = "fitbot:sessions"
+_MESSAGES_KEY_FMT = "fitbot:session:{client_id}:messages"
+_WORKOUTS_KEY_FMT = "fitbot:session:{client_id}:workouts"
 
-CREATE_MESSAGES = """
-CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_id TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('user','assistant')),
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(client_id) REFERENCES sessions(client_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_messages_client_time ON messages(client_id, created_at);
-"""
-
-CREATE_PROFILES = """
-CREATE TABLE IF NOT EXISTS profiles (
-    client_id TEXT PRIMARY KEY,
-    goal TEXT,
-    experience TEXT,
-    equipment TEXT,
-    limitations TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(client_id) REFERENCES sessions(client_id) ON DELETE CASCADE
-);
-"""
-
-CREATE_WORKOUTS = """
-CREATE TABLE IF NOT EXISTS workouts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_id TEXT NOT NULL,
-    entry TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(client_id) REFERENCES sessions(client_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_workouts_client_time ON workouts(client_id, created_at);
-"""
+_redis: Optional[redis.Redis] = None
 
 
-async def init_db(db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute("PRAGMA journal_mode=WAL;")
-        await db.execute("PRAGMA foreign_keys=ON;")
-        # Ejecuta tablas e índices; aiosqlite.execute solo acepta una sentencia,
-        # por eso usamos executescript para bloques múltiples.
-        await db.execute(CREATE_SESSIONS)
-        await db.executescript(CREATE_MESSAGES)
-        await db.execute(CREATE_PROFILES)
-        await db.executescript(CREATE_WORKOUTS)
-        await db.commit()
+def _messages_key(client_id: str) -> str:
+    return _MESSAGES_KEY_FMT.format(client_id=client_id)
 
 
-async def upsert_session(client_id: str, db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute(
-            "INSERT OR IGNORE INTO sessions(client_id) VALUES (?)",
-            (client_id,),
+def _workouts_key(client_id: str) -> str:
+    return _WORKOUTS_KEY_FMT.format(client_id=client_id)
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def init_db(url: Optional[str] = None, client: Optional[redis.Redis] = None) -> None:
+    """Inicializa la conexión global a Redis (o inyecta un cliente para pruebas)."""
+    global _redis
+    if client is not None:
+        _redis = client
+        return
+
+    redis_url = url or REDIS_URL
+    _redis = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+    await _redis.ping()
+
+
+async def close() -> None:
+    """Cierra la conexión global si existe."""
+    global _redis
+    if _redis is not None:
+        try:
+            await _redis.close()
+        finally:
+            _redis = None
+
+
+def _require_client(client: Optional[redis.Redis] = None) -> redis.Redis:
+    conn = client or _redis
+    if conn is None:
+        raise RuntimeError("Redis no inicializado. Llamá chat_store.init_db() en el arranque.")
+    return conn
+
+
+async def upsert_session(client_id: str, client: Optional[redis.Redis] = None) -> None:
+    conn = _require_client(client)
+    await conn.sadd(_SESSIONS_KEY, client_id)
+
+
+async def append_message(
+    client_id: str,
+    role: str,
+    content: str,
+    client: Optional[redis.Redis] = None,
+) -> None:
+    conn = _require_client(client)
+    payload = json.dumps(
+        {
+            "role": role,
+            "content": content,
+            "created_at": _utc_now(),
+        }
+    )
+    await conn.rpush(_messages_key(client_id), payload)
+
+
+async def get_history(
+    client_id: str,
+    limit: int = 50,
+    client: Optional[redis.Redis] = None,
+) -> List[Dict[str, Any]]:
+    conn = _require_client(client)
+    raw_messages = await conn.lrange(_messages_key(client_id), -limit, -1)
+    history: List[Dict[str, Any]] = []
+    for raw in raw_messages:
+        try:
+            entry = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        history.append({"role": entry.get("role", "assistant"), "content": entry.get("content", "")})
+    return history
+
+
+async def clear_history(client_id: str, client: Optional[redis.Redis] = None) -> None:
+    conn = _require_client(client)
+    await conn.delete(_messages_key(client_id))
+
+
+async def log_workout(client_id: str, entry: str, client: Optional[redis.Redis] = None) -> None:
+    conn = _require_client(client)
+    payload = json.dumps({"entry": entry, "created_at": _utc_now()})
+    await conn.rpush(_workouts_key(client_id), payload)
+
+
+async def get_workouts(
+    client_id: str,
+    limit: int = 10,
+    client: Optional[redis.Redis] = None,
+) -> List[Dict[str, Any]]:
+    conn = _require_client(client)
+    raw_entries = await conn.lrange(_workouts_key(client_id), -limit, -1)
+    workouts: List[Dict[str, Any]] = []
+    for raw in raw_entries:
+        try:
+            entry = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        workouts.append(
+            {
+                "entry": entry.get("entry", ""),
+                "created_at": entry.get("created_at"),
+            }
         )
-        await db.commit()
-
-
-async def append_message(client_id: str, role: str, content: str, db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute(
-            "INSERT INTO messages(client_id, role, content) VALUES (?,?,?)",
-            (client_id, role, content),
-        )
-        await db.commit()
-
-
-async def get_history(client_id: str, limit: int = 50, db_path: Optional[str] = None) -> List[Dict[str, str]]:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        # Fetch latest 'limit' then return in chronological order
-        cursor = await db.execute(
-            "SELECT role, content FROM messages WHERE client_id = ? ORDER BY id DESC LIMIT ?",
-            (client_id, limit),
-        )
-        rows = await cursor.fetchall()
-        await cursor.close()
-    # Reverse to chronological
-    rows.reverse()
-    return [{"role": r[0], "content": r[1]} for r in rows]
-
-
-async def get_all_history(client_id: str, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        cursor = await db.execute(
-            "SELECT role, content, created_at FROM messages WHERE client_id = ? ORDER BY id ASC",
-            (client_id,),
-        )
-        rows = await cursor.fetchall()
-        await cursor.close()
-    return [{"role": r[0], "content": r[1], "created_at": r[2]} for r in rows]
-
-
-async def clear_history(client_id: str, db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute("DELETE FROM messages WHERE client_id = ?", (client_id,))
-        await db.commit()
-
-
-# Perfil de usuario
-async def upsert_profile(client_id: str, goal: Optional[str], experience: Optional[str], equipment: Optional[str], limitations: Optional[str], db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute(
-            "INSERT INTO profiles(client_id, goal, experience, equipment, limitations) VALUES (?,?,?,?,?)\n"
-            "ON CONFLICT(client_id) DO UPDATE SET goal=excluded.goal, experience=excluded.experience, equipment=excluded.equipment, limitations=excluded.limitations, updated_at=CURRENT_TIMESTAMP",
-            (client_id, goal, experience, equipment, limitations),
-        )
-        await db.commit()
-
-
-async def get_profile(client_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Optional[str]]]:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        cursor = await db.execute(
-            "SELECT goal, experience, equipment, limitations FROM profiles WHERE client_id = ?",
-            (client_id,),
-        )
-        row = await cursor.fetchone()
-        await cursor.close()
-    if not row:
-        return None
-    return {"goal": row[0], "experience": row[1], "equipment": row[2], "limitations": row[3]}
-
-
-# Workouts simples
-async def log_workout(client_id: str, entry: str, db_path: Optional[str] = None) -> None:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        await db.execute("INSERT INTO workouts(client_id, entry) VALUES (?,?)", (client_id, entry))
-        await db.commit()
-
-
-async def get_workouts(client_id: str, limit: int = 10, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
-    path = db_path or DB_PATH
-    async with aiosqlite.connect(path) as db:
-        cursor = await db.execute(
-            "SELECT entry, created_at FROM workouts WHERE client_id = ? ORDER BY id DESC LIMIT ?",
-            (client_id, limit),
-        )
-        rows = await cursor.fetchall()
-        await cursor.close()
-    rows.reverse()
-    return [{"entry": r[0], "created_at": r[1]} for r in rows]
-
+    return workouts

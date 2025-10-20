@@ -1,16 +1,27 @@
 version: '3.9'
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
   app:
     build: .
+    depends_on:
+      - redis
     ports:
       - "8000:8000"
     environment:
-      - LM_BASE_URL=${LM_BASE_URL:-http://host.docker.internal:1234/v1}
-      - LM_API_KEY=${LM_API_KEY:-not-needed}
-      - LM_MODEL=${LM_MODEL:-Meta-Llama-3-8B-Instruct}
-      - LM_TEMPERATURE=${LM_TEMPERATURE:-0.7}
-      - LM_MAX_TOKENS=${LM_MAX_TOKENS:-1500}
-    volumes:
-      - ./fitbot.db:/app/fitbot.db
+      - AI_BASE_URL=${AI_BASE_URL:-https://api.groq.com/openai/v1}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-llama-3.1-8b-instant}
+      - AI_TEMPERATURE=${AI_TEMPERATURE:-0.7}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-1500}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
     restart: unless-stopped
 
+volumes:
+  redis-data:

@@ -1,23 +1,32 @@
-﻿import os
 import logging
-from typing import List, Dict
-from openai import OpenAI
-from dotenv import load_dotenv
+import os
+import time
+from contextlib import suppress
+from typing import AsyncIterator, Dict, Iterable, List, Optional, Sequence
 
-# Carga variables desde .env si existe
+from dotenv import load_dotenv
+from openai import AsyncOpenAI, OpenAI
+
 load_dotenv()
 
-LM_BASE_URL = os.getenv("LM_BASE_URL", "http://localhost:1234/v1")
-LM_API_KEY = os.getenv("LM_API_KEY", "not-needed")
-LM_MODEL = os.getenv("LM_MODEL", "Meta-Llama-3-8B-Instruct")
-LM_TEMPERATURE = float(os.getenv("LM_TEMPERATURE", "0.7"))
-LM_MAX_TOKENS = int(os.getenv("LM_MAX_TOKENS", "1500"))
+DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
+DEFAULT_MODEL = "llama-3.1-8b-instant"
 
-try:
-    client = OpenAI(base_url=LM_BASE_URL, api_key=LM_API_KEY)
-except Exception as e:
-    logging.error("Error al conectar con el servidor local de IA: %s", e)
-    client = None
+AI_BASE_URL = os.getenv("AI_BASE_URL") or os.getenv("LM_BASE_URL", DEFAULT_BASE_URL)
+AI_API_KEY = os.getenv("AI_API_KEY") or os.getenv("GROQ_API_KEY") or os.getenv("LM_API_KEY")
+AI_MODEL = os.getenv("AI_MODEL") or os.getenv("LM_MODEL", DEFAULT_MODEL)
+PREFERRED_MODELS = [
+    AI_MODEL,
+    "llama-3.2-3b-preview",
+    "llama-3.1-8b-instant",
+    "llama-3.1-70b-versatile",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
+]
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE") or os.getenv("LM_TEMPERATURE", "0.7"))
+AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS") or os.getenv("LM_MAX_TOKENS", "1500"))
+AI_CLIENT_TIMEOUT = float(os.getenv("AI_CLIENT_TIMEOUT") or os.getenv("LM_CLIENT_TIMEOUT", "120.0"))
+CLIENT_CHECK_TTL = float(os.getenv("AI_CLIENT_CHECK_TTL") or os.getenv("LM_CLIENT_CHECK_TTL", "10.0"))
 
 SYSTEM_PROMPT = """
 Eres 'FitBot', un Entrenador Personal virtual. Tu tono es motivador, amigable y profesional.
@@ -35,39 +44,138 @@ Al responder:
 5) Motiva y celebra el progreso.
 
 No respondas a temas fuera de fitness, salud o nutrición.
-"""
+""".strip()
+
+
+def _build_sync_client() -> OpenAI:
+    return OpenAI(
+        base_url=AI_BASE_URL,
+        api_key=AI_API_KEY,
+        timeout=AI_CLIENT_TIMEOUT,
+    )
+
+
+def _build_async_client() -> AsyncOpenAI:
+    return AsyncOpenAI(
+        base_url=AI_BASE_URL,
+        api_key=AI_API_KEY,
+        timeout=AI_CLIENT_TIMEOUT,
+    )
+
+
+_last_check_ts: float = 0.0
+_last_check_ok: bool = False
+_resolved_model: Optional[str] = None
+
+
+def _extract_model_ids(items: Iterable) -> List[str]:
+    ids: List[str] = []
+    for item in items:
+        identifier = getattr(item, "id", None)
+        if identifier:
+            ids.append(str(identifier))
+            continue
+        if isinstance(item, dict) and item.get("id"):
+            ids.append(str(item["id"]))
+    return ids
+
+
+def _list_available_models() -> Sequence[str]:
+    client = _build_sync_client()
+    try:
+        response = client.models.list()
+    finally:
+        with suppress(Exception):
+            client.close()
+    data = getattr(response, "data", response)
+    if isinstance(data, Sequence):
+        return _extract_model_ids(data)
+    return _extract_model_ids(list(data))
+
+
+def _resolve_model() -> str:
+    global _resolved_model
+    if _resolved_model:
+        return _resolved_model
+
+    seen = set()
+    candidates: List[str] = []
+    for name in PREFERRED_MODELS:
+        if not name or name in seen:
+            continue
+        candidates.append(name)
+        seen.add(name)
+    available = set(_list_available_models())
+    for candidate in candidates:
+        if candidate in available:
+            if AI_MODEL and candidate != AI_MODEL:
+                logging.warning(
+                    "Modelo preferido %s no disponible, usando %s", AI_MODEL, candidate
+                )
+            _resolved_model = candidate
+            return candidate
+
+    if available:
+        fallback = sorted(available)[0]
+        logging.warning(
+            "Ninguno de los modelos preferidos está disponible; usando %s", fallback
+        )
+        _resolved_model = fallback
+        return fallback
+
+    raise RuntimeError("Groq no publicó modelos disponibles para esta API key")
 
 
 def is_client_available() -> bool:
-    """Indica si el cliente de IA está disponible."""
-    return client is not None
+    """Devuelve True si el proveedor remoto de IA estuvo disponible recientemente."""
+    global _last_check_ts, _last_check_ok
+    now = time.monotonic()
+    if now - _last_check_ts <= CLIENT_CHECK_TTL:
+        return _last_check_ok
 
-
-def get_ai_trainer_response(conversation_history: List[Dict]) -> str:
-    if not client:
-        return "No pude conectarme al motor de IA local. ¿Iniciaste el servidor en LM Studio?"
+    if not AI_API_KEY:
+        logging.debug("AI_API_KEY no configurada; el proveedor remoto queda deshabilitado")
+        _last_check_ok = False
+        _last_check_ts = now
+        return False
 
     try:
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
+        _resolve_model()
+        _last_check_ok = True
+    except Exception as exc:  # pragma: no cover - ocurre solo ante fallos de red
+        logging.debug("No se pudo conectar al cliente local de IA: %s", exc)
+        _last_check_ok = False
+    _last_check_ts = now
+    return _last_check_ok
 
-        response = client.chat.completions.create(
-            model=LM_MODEL,
-            messages=messages,
-            temperature=LM_TEMPERATURE,
-            max_tokens=LM_MAX_TOKENS
+
+async def astream_chat_completion(messages: List[Dict[str, str]]) -> AsyncIterator[str]:
+    """Itera fragmentos de texto del modelo de manera asíncrona."""
+    if not AI_API_KEY:
+        raise RuntimeError(
+            "AI_API_KEY no está configurada. Registrate en Groq (gratuito) y exporta AI_API_KEY o GROQ_API_KEY."
         )
-        
-        # Manejo defensivo de respuestas vacías o estructura inesperada
-        try:
-            content = response.choices[0].message.content
-        except Exception:
-            content = None
-        if not content or not str(content).strip():
-            return "Lo siento, no pude generar una respuesta ahora. Probá nuevamente o revisá LM Studio."
-        return str(content).strip()
-
-    except Exception as e:
-        logging.exception("Error al llamar al modelo local: %s", e)
-        return "Uff, parece que mis circuitos locales están sobrecargados. Revisa la consola de LM Studio."
-
-
+    client: Optional[AsyncOpenAI] = None
+    stream = None
+    try:
+        client = _build_async_client()
+        model_name = _resolve_model()
+        stream = await client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=AI_TEMPERATURE,
+            max_tokens=AI_MAX_TOKENS,
+            stream=True,
+        )
+        async for chunk in stream:
+            with suppress(Exception):
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    yield delta
+    except Exception as exc:
+        logging.exception("Error durante el stream de respuesta del LLM: %s", exc)
+        raise
+    finally:
+        if client:
+            with suppress(Exception):
+                await client.close()
