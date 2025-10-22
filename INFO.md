@@ -8,7 +8,7 @@ La aplicación sigue una arquitectura **Cliente-Servidor** sencilla. FastAPI exp
 Todo el servidor corre sobre `asyncio`. Cada mensaje del usuario desencadena una tarea asíncrona que consume la API de Groq en modo streaming. Mientras llegan los tokens del modelo, se van reenviando al WebSocket del cliente; otros usuarios no quedan bloqueados.
 
 ## Modelo de Inteligencia Artificial
-Se utiliza **Llama 3.1 (llama-3.1-8b-instant)** hospedado por Groq a través de su API compatible con OpenAI. Esta elección reemplaza el antiguo flujo con LM Studio y elimina la necesidad de ejecutar modelos pesados en la computadora del usuario.
+Se utiliza **Llama 3.1 (llama-3.1-8b-instant)** hospedado por Groq a través de su API compatible con OpenAI.
 
 **Justificación:**
 1. **Costo:** Groq ofrece un plan gratuito con cuota generosa para proyectos personales/educativos.

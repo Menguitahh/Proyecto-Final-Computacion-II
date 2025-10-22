@@ -29,7 +29,7 @@ async def _generate_reply(history: List[Dict[str, str]]) -> str:
         async for delta in chatbot.astream_chat_completion(prompt):
             if delta:
                 fragments.append(delta)
-    except Exception as exc:  # pragma: no cover - solo ocurre ante fallos del proveedor
+    except Exception as exc:  
         logging.error("Error generando respuesta en modo TCP: %s", exc)
         return FALLBACK
     text = "".join(fragments).strip()
@@ -78,7 +78,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await send_line(f"FitBot: {reply}")
     except asyncio.CancelledError:
         pass
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  
         logging.exception("Error atendiendo a %s: %s", addr, exc)
         with suppress(Exception):
             await send_line("FitBot: Ocurrió un error inesperado. Intentalo más tarde.")
@@ -114,5 +114,5 @@ async def main() -> None:
         await chat_store.close()
 
 
-if __name__ == "__main__":  # pragma: no cover - ejecución directa
+if __name__ == "__main__":  
     asyncio.run(main())

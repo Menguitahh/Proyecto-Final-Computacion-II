@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     try:
         await chat_store.init_db()
         logging.info("Base de datos inicializada")
-    except Exception as exc:  # pragma: no cover - solo se ejecuta ante fallo en arranque
+    except Exception as exc:  
         logging.exception("No se pudo inicializar la DB de chats: %s", exc)
     try:
         yield
@@ -116,7 +116,7 @@ async def _stream_assistant_reply(
                 continue
             chunks.append(delta)
             await manager.send_json(websocket, {"type": "stream", "delta": delta})
-    except Exception as exc:  # pragma: no cover - solo ante fallos del LLM
+    except Exception as exc:
         logging.error("Error generando respuesta para %s: %s", client_id, exc)
         final_text = fallback
     else:
@@ -249,7 +249,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str) -> None:
 
     except WebSocketDisconnect:
         logging.info("Cliente %s desconectado.", client_id)
-    except Exception as exc:  # pragma: no cover - ruta de error inesperada
+    except Exception as exc:  
         logging.exception("Error en la sesión del cliente %s: %s", client_id, exc)
         with suppress(Exception):
             await manager.send_json(

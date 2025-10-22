@@ -27,7 +27,6 @@ def _utc_now() -> str:
 
 
 async def init_db(url: Optional[str] = None, client: Optional[redis.Redis] = None) -> None:
-    """Inicializa la conexión global a Redis (o inyecta un cliente para pruebas)."""
     global _redis
     if client is not None:
         _redis = client
@@ -39,7 +38,6 @@ async def init_db(url: Optional[str] = None, client: Optional[redis.Redis] = Non
 
 
 async def close() -> None:
-    """Cierra la conexión global si existe."""
     global _redis
     if _redis is not None:
         try:

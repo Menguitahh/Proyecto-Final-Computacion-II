@@ -27,7 +27,7 @@ async def run_client(host: str, port: int) -> None:
     await writer.wait_closed()
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":  
     host = "127.0.0.1"
     port = 9000
     if len(sys.argv) >= 2:

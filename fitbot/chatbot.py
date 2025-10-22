@@ -142,7 +142,7 @@ def is_client_available() -> bool:
     try:
         _resolve_model()
         _last_check_ok = True
-    except Exception as exc:  # pragma: no cover - ocurre solo ante fallos de red
+    except Exception as exc: 
         logging.debug("No se pudo conectar al cliente local de IA: %s", exc)
         _last_check_ok = False
     _last_check_ts = now
