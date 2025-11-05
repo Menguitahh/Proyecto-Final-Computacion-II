@@ -1,5 +1,6 @@
 import json
 import os
+import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -8,8 +9,10 @@ import redis.asyncio as redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 _SESSIONS_KEY = "fitbot:sessions"
+_USERS_KEY = "fitbot:users"
 _MESSAGES_KEY_FMT = "fitbot:session:{client_id}:messages"
 _WORKOUTS_KEY_FMT = "fitbot:session:{client_id}:workouts"
+_USER_KEY_FMT = "fitbot:user:{username}"
 
 _redis: Optional[redis.Redis] = None
 
@@ -20,6 +23,10 @@ def _messages_key(client_id: str) -> str:
 
 def _workouts_key(client_id: str) -> str:
     return _WORKOUTS_KEY_FMT.format(client_id=client_id)
+
+
+def _user_key(username: str) -> str:
+    return _USER_KEY_FMT.format(username=username)
 
 
 def _utc_now() -> str:
@@ -90,6 +97,49 @@ async def get_history(
             continue
         history.append({"role": entry.get("role", "assistant"), "content": entry.get("content", "")})
     return history
+
+
+async def register_user(
+    username: str,
+    password_hash: str,
+    client_id: Optional[str] = None,
+    client: Optional[redis.Redis] = None,
+) -> str:
+    conn = _require_client(client)
+    key = _user_key(username)
+    exists = await conn.exists(key)
+    if exists:
+        raise ValueError("Usuario ya existe")
+
+    assigned_client_id = client_id or f"user-{secrets.token_hex(6)}"
+    payload = json.dumps(
+        {
+            "username": username,
+            "password_hash": password_hash,
+            "client_id": assigned_client_id,
+            "created_at": _utc_now(),
+        }
+    )
+
+    async with conn.pipeline() as pipe:
+        pipe.sadd(_USERS_KEY, username)
+        pipe.set(key, payload)
+        await pipe.execute()
+
+    await upsert_session(assigned_client_id, client=conn)
+    return assigned_client_id
+
+
+async def get_user(username: str, client: Optional[redis.Redis] = None) -> Optional[Dict[str, Any]]:
+    conn = _require_client(client)
+    raw = await conn.get(_user_key(username))
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return data
 
 
 async def clear_history(client_id: str, client: Optional[redis.Redis] = None) -> None:

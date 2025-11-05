@@ -34,13 +34,23 @@ Para cumplir con el requisito de sockets “raw” podés interactuar con FitBot
 
 ```bash
 # Servidor TCP (puerto por defecto 9000)
-python -m fitbot.tcp.server --host 127.0.0.1 --port 9000
+python -m fitbot.tcp.server --host 0.0.0.0 --port 9000
 
-# Cliente mínimo incluido
+# Cliente incluido (ofrece registro/login o modo invitado, con interfaz ANSI)
 python -m fitbot.tcp.client 127.0.0.1 9000
 
 # También podés usar netcat
 nc 127.0.0.1 9000
+
+# Modo paralelo (múltiples workers aceptando conexiones en el mismo puerto)
+python -m fitbot.tcp.server --host 0.0.0.0 --port 9000 --workers 4
 ```
 
-Cada conexión TCP genera un `client_id` propio, guarda el historial en Redis y usa el mismo modelo Groq que la versión web. Comandos disponibles en el cliente: `/quit` o `/exit` para cortar la sesión.
+El cliente CLI usa colores ANSI (si tu terminal no los soporta, sumá `--no-auto` y enviá los comandos manualmente).
+
+Al iniciar el cliente podés elegir:
+- Registrarte (`/register usuario clave`) para crear un usuario nuevo (se persiste el historial en Redis).
+- Iniciar sesión (`/login usuario clave`) y restaurar tu conversación previa.
+- Seguir como invitado (`/guest`) sin guardar nada.
+
+Dentro del chat están disponibles `/clear` para borrar el historial guardado y `/quit` o `/exit` para finalizar. Con `--no-auto` el cliente no envía comandos automáticos y podés escribirlos manualmente.
