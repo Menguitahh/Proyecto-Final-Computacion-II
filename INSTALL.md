@@ -1,55 +1,48 @@
-# Guía de Instalación de FitBot
+# Guía de Instalación (modo TCP)
 
-Sigue estos pasos para configurar y lanzar la aplicación completa.
-
-## 1. Prerrequisitos
+## Prerrequisitos
 - Python 3.9 o superior
-- Git
-- Cuenta gratuita en Groq para obtener una API key (<https://console.groq.com/keys>)
+- Redis en ejecución (local o remoto)
+- Cuenta en Groq para obtener `AI_API_KEY`
 
-## 2. Clonar el repositorio
+## Pasos
 ```bash
-git clone <URL_DE_TU_REPOSITORIO>
+git clone <URL_DEL_REPO>
 cd <NOMBRE_DEL_DIRECTORIO>
-```
 
-## 3. Crear entorno y dependencias
-```bash
 python -m venv .venv
-source .venv/bin/activate   # En Windows: .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -r requirements.txt
 ```
 
-## 4. Levantar Redis
-- Opción rápida: `docker compose up redis -d`
-- Alternativa: instala Redis en tu sistema y asegurate de que `REDIS_URL` apunte a esa instancia.
-
-## 5. Configuración del proveedor
-1) Duplica `.env.example` en `.env`.
-2) Completa `AI_API_KEY` con la clave de Groq.
-3) (Opcional) Ajusta `AI_MODEL` si querés usar otro modelo; por defecto `llama-3.1-8b-instant` ofrece buen equilibrio entre calidad y cuota gratuita.
-
-## 6. Ejecutar el servidor web
+Configura las variables necesarias (podés usar `.env`):
 ```bash
-uvicorn fitbot.app:app --reload
-```
-Luego abre tu navegador en:
-```
-http://127.0.0.1:8000/
+export AI_API_KEY="tu_clave"
+# export REDIS_URL="redis://localhost:6379/0"
+# export AI_MODEL="llama-3.1-8b-instant"
 ```
 
-## 7. (Opcional) Servidor TCP sin web
-Para probar la interacción por sockets crudos:
-
+Levantá Redis:
 ```bash
-python -m fitbot.tcp.server --host 127.0.0.1 --port 9000
-# En otra terminal
+redis-server
+# o docker run -it --rm -p 6379:6379 redis:alpine
+```
+
+Arrancá el servidor TCP:
+```bash
+python -m fitbot.tcp.server --host 0.0.0.0 --port 9000
+```
+
+En otra terminal iniciá el cliente CLI:
+```bash
 python -m fitbot.tcp.client 127.0.0.1 9000
 ```
 
-## 8. Solución de problemas
-- "AI_API_KEY no está configurada": crea el archivo `.env` o exporta la variable en tu entorno de shell.
-- "401 Unauthorized" en los logs: revisa que la API key de Groq sea válida y tenga cuota disponible.
-- Error de WebSocket/Re-conexión: revisa que `uvicorn` siga activo y que no haya firewalls bloqueando `ws://`.
-- Archivos pesados: los videos de fondo pueden no estar versionados; puedes añadir los tuyos en `static/` o usar un fondo estático.
+El menú inicial permite registrarte, iniciar sesión o continuar como invitado.  
+Dentro del chat podés usar `/clear` para borrar historial y `/quit` para salir.
+
+## Solución de problemas
+- **`AI_API_KEY` vacía:** exportá la variable o cargala desde `.env`.
+- **Errores de conexión a Redis:** verificá `REDIS_URL` y que el servicio esté en marcha.
+- **Sin colores en la terminal:** ejecutá el cliente con `--no-auto` y enviá los comandos manualmente.

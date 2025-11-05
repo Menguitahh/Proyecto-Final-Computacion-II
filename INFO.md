@@ -1,20 +1,26 @@
 ```markdown
-# Informe de Diseño: FitBot
+# Informe de Diseño: FitBot (TCP)
 
 ## Arquitectura General
-La aplicación sigue una arquitectura **Cliente-Servidor** sencilla. FastAPI expone una API WebSocket (`fitbot/app.py`) que sirve la SPA del chat (`static/`). Para el requisito académico también se incluye un servidor TCP puro (`fitbot/tcp/server.py`) que utiliza sockets crudos; ambos modos comparten la misma lógica de negocio y almacenamiento.
+El sistema quedó reducido a un único modo de operación: un servidor TCP asíncrono (`fitbot/tcp/server.py`) y un cliente de consola (`fitbot/tcp/client.py`). Ambos se comunican mediante sockets crudos sobre `asyncio`. Las credenciales del usuario y el historial se guardan en Redis para permitir reconexiones desde distintas terminales o máquinas.
 
 ## Modelo de Concurrencia
-Todo el servidor corre sobre `asyncio`. Cada mensaje del usuario desencadena una tarea asíncrona que consume la API de Groq en modo streaming. Mientras llegan los tokens del modelo, se van reenviando al WebSocket del cliente; otros usuarios no quedan bloqueados.
+El servidor usa `asyncio.start_server` y puede escalar horizontalmente con múltiples workers (`--workers N`) compartiendo el mismo puerto gracias a `SO_REUSEPORT`. Cada conexión mantiene un `SessionContext` con las últimas 20 interacciones para alimentar al modelo sin crecer indefinidamente.
 
 ## Modelo de Inteligencia Artificial
-Se utiliza **Llama 3.1 (llama-3.1-8b-instant)** hospedado por Groq a través de su API compatible con OpenAI.
-
-**Justificación:**
-1. **Costo:** Groq ofrece un plan gratuito con cuota generosa para proyectos personales/educativos.
-2. **Latencia baja:** La infraestructura LPU entrega tokens rápidamente, ofreciendo una experiencia comparable o mejor a un despliegue local sin requerir GPU.
-3. **Simplicidad:** Configurar la API reduce la complejidad de instalación y facilita despliegues en la nube o en equipos modestos.
+Se conserva el uso de **Llama 3** hospedado en Groq vía su API compatible con OpenAI. La clase `fitbot/chatbot.py` se encarga de:
+- Resolver el mejor modelo disponible entre una lista preferida.
+- Crear clientes síncronos/asíncronos reutilizables.
+- Emitir respuestas en streaming (`astream_chat_completion`) para mantener una experiencia fluida.
 
 ## Gestión de Estado
-Cada WebSocket mantiene una lista circular con las últimas 20 interacciones para alimentar al modelo y evitar el crecido de memoria. Las conversaciones completas se almacenan en Redis (`fitbot/chat_store.py`) y se recuperan cuando el usuario vuelve a conectarse. El streaming finaliza guardando la respuesta y notificando al cliente con un evento `stream_end`.
+`fitbot/chat_store.py` abstrae el acceso a Redis:
+- Registro/login de usuarios (hash SHA-256 sobre la contraseña).
+- Persistencia de historiales por `client_id`.
+- Utilidades para limpiar historial (`/clear`) y mantener la lista circular.
+
+Los invitados reciben IDs efímeros y nunca se persisten en Redis.
+
+## Interfaz de Usuario
+Todo ocurre en consola. El cliente CLI ofrece un menú inicial y colorea las conversaciones con códigos ANSI definidos en `fitbot/tcp/ansi.py`, diferenciando claramente los mensajes del usuario y del bot.
 ```

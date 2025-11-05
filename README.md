@@ -1,56 +1,76 @@
-# FitBot: Tu Entrenador Personal con IA
+# FitBot (modo TCP puro)
 
-**FitBot** es un chatbot con interfaz web diseñado para actuar como un entrenador personal. Utiliza un modelo Llama 3 hospedado en Groq (plan gratuito) a través de la API compatible con OpenAI para ofrecer respuestas rápidas sobre fitness, rutinas y nutrición.
+Este repositorio contiene únicamente la versión por sockets TCP de FitBot, un entrenador personal impulsado por IA.  
+El flujo es todo en terminal: un servidor asyncio que acepta múltiples clientes concurrently, y un cliente CLI con soporte para registro/login, invitado y colores ANSI.
 
-La aplicación usa FastAPI con WebSocket para sostener múltiples conversaciones simultáneas sin bloquear a otros usuarios, incluso cuando cada uno recibe respuestas en streaming. El estado (usuarios, historial de chat y registros de entrenamiento) se persiste en Redis, lo que simplifica la ejecución en contenedores o despliegues en la nube.
+## Dependencias
 
-## Características
-- Conversaciones con IA: dialoga en lenguaje natural sobre tus metas de fitness.
-- Gratis (hasta el límite del plan de Groq) y sin necesidad de hardware especializado.
-- Respuestas en streaming con baja latencia gracias a la infraestructura LPU de Groq.
-- Multi-cliente: múltiples usuarios pueden conectarse y tener sesiones privadas en paralelo.
-- Persistencia en Redis: historial y registros se conservan entre sesiones sin depender de SQLite locales.
+- Python 3.9+
+- Redis en ejecución (local o remoto)
+- Cuenta en [Groq](https://console.groq.com/keys) para obtener `AI_API_KEY`
+- Paquetes Python: ver `requirements.txt`
 
-## Uso básico
-1. Crea una cuenta gratuita en [Groq](https://console.groq.com/keys) y copia tu clave de API.
-2. Duplica `.env.example` en `.env`, completá `AI_API_KEY` y dejá `AI_MODEL=llama-3.1-8b-instant` (modelo estable sugerido en el plan gratuito de Groq).
-3. Levantá Redis (por ejemplo `docker compose up redis -d` o instala Redis localmente y actualiza `REDIS_URL`).
-4. Instala dependencias y ejecuta `uvicorn fitbot.app:app --reload`.
-5. Abre `http://127.0.0.1:8000/` para empezar a chatear con FitBot.
-
-Nota: podés seguir usando `uvicorn server:app --reload` por compatibilidad.
-
-## Ejecutar todo con Docker Compose
+### Instalación rápida
 
 ```bash
-docker compose up --build
+python -m venv .venv
+source .venv/bin/activate   # en Windows: .venv\Scripts\activate
+pip install -U pip
+pip install -r requirements.txt
 ```
 
-Esto levanta dos contenedores: Redis (con almacenamiento persistente en `redis-data/`) y la aplicación web en `http://localhost:8000`. Asegurate de exportar `AI_API_KEY` antes de ejecutar el comando si querés pasar la clave sin escribirla en `.env`.
-
-## Modo TCP (sockets sin Web)
-
-Para cumplir con el requisito de sockets “raw” podés interactuar con FitBot vía terminal:
+Configura tus credenciales en el entorno (opcionalmente usando `.env`):
 
 ```bash
-# Servidor TCP (puerto por defecto 9000)
+export AI_API_KEY="tu_clave_de_groq"
+# Opcional:
+# export AI_MODEL="llama-3.1-8b-instant"
+# export REDIS_URL="redis://localhost:6379/0"
+```
+
+Asegurate de que Redis esté disponible. Por ejemplo:
+
+```bash
+redis-server             # instalación local
+# o, si preferís contenedor:
+# docker run -it --rm -p 6379:6379 redis:alpine
+```
+
+## Uso
+
+Lanza el servidor TCP (usa 9000 por defecto y autodetecta la IP local):
+
+```bash
 python -m fitbot.tcp.server --host 0.0.0.0 --port 9000
-
-# Cliente incluido (ofrece registro/login o modo invitado, con interfaz ANSI)
-python -m fitbot.tcp.client 127.0.0.1 9000
-
-# También podés usar netcat
-nc 127.0.0.1 9000
-
-# Modo paralelo (múltiples workers aceptando conexiones en el mismo puerto)
-python -m fitbot.tcp.server --host 0.0.0.0 --port 9000 --workers 4
 ```
 
-El cliente CLI usa colores ANSI (si tu terminal no los soporta, sumá `--no-auto` y enviá los comandos manualmente).
+En otra terminal iniciá el cliente oficial:
 
-Al iniciar el cliente podés elegir:
-- Registrarte (`/register usuario clave`) para crear un usuario nuevo (se persiste el historial en Redis).
-- Iniciar sesión (`/login usuario clave`) y restaurar tu conversación previa.
-- Seguir como invitado (`/guest`) sin guardar nada.
+```bash
+python -m fitbot.tcp.client 127.0.0.1 9000
+```
 
-Dentro del chat están disponibles `/clear` para borrar el historial guardado y `/quit` o `/exit` para finalizar. Con `--no-auto` el cliente no envía comandos automáticos y podés escribirlos manualmente.
+El cliente muestra un pequeño menú:
+
+- `[1]` Registrarse (`/register usuario contraseña`) y persistir historial.
+- `[2]` Iniciar sesión (`/login usuario contraseña`) y restaurar las últimas 20 interacciones.
+- `[3]` Modo invitado (`/guest`) sin guardar nada.
+- `[q]` Salir.
+
+Comandos dentro del chat:
+
+- `/clear` borra el historial guardado (o reinicia la sesión temporal si sos invitado).
+- `/quit` o `/exit` cierran la conexión.
+
+La salida usa ANSI para diferenciar mensajes del usuario y del bot.  
+Si tu terminal no soporta colores, ejecutá el cliente con `--no-auto` y enviá los comandos manualmente.
+
+## Arquitectura resumida
+
+- `fitbot/tcp/server.py`: servidor asyncio con workers multi-proceso opcionales (`--workers` usa `SO_REUSEPORT` cuando está disponible).
+- `fitbot/tcp/client.py`: cliente CLI con autenticación básica y sesión automática.
+- `fitbot/chat_store.py`: persistencia en Redis para usuarios e historiales.
+- `fitbot/chatbot.py`: wrapper del SDK de Groq/OpenAI para generar respuestas en streaming.
+- `fitbot/tcp/ansi.py`: constantes ANSI compartidas.
+
+Todo lo relacionado con UI web, FastAPI o pruebas de front-end fue eliminado para dejar un proyecto enfocado 100 % en sockets TCP.

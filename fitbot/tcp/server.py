@@ -10,30 +10,15 @@ from typing import Dict, List, Optional
 
 from fitbot import chat_store
 from fitbot import chatbot
-
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-COLOR_USER = "\033[96m"
-COLOR_BOT = "\033[95m"
-COLOR_INFO = "\033[94m"
-COLOR_SUCCESS = "\033[92m"
-COLOR_WARN = "\033[93m"
-COLOR_ERROR = "\033[91m"
-
-USER_TAG = f"{COLOR_USER}{BOLD}🧑 Vos{RESET}"
-USER_CONT = f"{COLOR_USER}│{RESET}"
-BOT_TAG = f"{COLOR_BOT}{BOLD}🤖 FitBot{RESET}"
-BOT_CONT = f"{COLOR_BOT}│{RESET}"
-INFO_TAG = f"{COLOR_INFO}{BOLD}ℹ{RESET}"
+from fitbot.tcp import ansi
 
 WELCOME = (
-    f"{COLOR_BOT}{BOLD}¡Hola! Soy FitBot (modo TCP){RESET}\n"
-    f"{COLOR_INFO}Contame en qué puedo ayudarte. Recordá: "
-    f"{COLOR_USER}/clear{RESET}{COLOR_INFO} borra el historial guardado y "
-    f"{COLOR_USER}/quit{RESET}{COLOR_INFO} termina la sesión.{RESET}"
+    f"{ansi.COLOR_BOT}{ansi.BOLD}¡Hola! Soy FitBot (modo TCP){ansi.RESET}\n"
+    f"{ansi.COLOR_INFO}Contame en qué puedo ayudarte. Recordá: "
+    f"{ansi.COLOR_USER}/clear{ansi.RESET}{ansi.COLOR_INFO} borra el historial guardado y "
+    f"{ansi.COLOR_USER}/quit{ansi.RESET}{ansi.COLOR_INFO} termina la sesión.{ansi.RESET}"
 )
-FALLBACK = f"{COLOR_ERROR}No pude generar respuesta ahora. Intentá nuevamente.{RESET}"
+FALLBACK = f"{ansi.COLOR_ERROR}No pude generar respuesta ahora. Intentá nuevamente.{ansi.RESET}"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -92,17 +77,17 @@ async def _generate_reply(history: List[Dict[str, str]]) -> str:
 
 async def _send_history(send_line, entries: List[Dict[str, str]]) -> None:
     if not entries:
-        await send_line(f"{COLOR_INFO}No había mensajes guardados. Empecemos un nuevo chat.{RESET}")
+        await send_line(f"{ansi.COLOR_INFO}No había mensajes guardados. Empecemos un nuevo chat.{ansi.RESET}")
         return
     await send_line("")
-    await send_line(f"{INFO_TAG} Últimos mensajes guardados")
+    await send_line(f"{ansi.INFO_TAG} Últimos mensajes guardados{ansi.RESET}")
     for entry in entries:
         role = entry.get("role")
         content = entry.get("content", "")
         if role == "user":
-            await send_line(_format_dialog(USER_TAG, USER_CONT, content))
+            await send_line(_format_dialog(ansi.USER_TAG, ansi.USER_CONT, content))
         else:
-            await send_line(_format_dialog(BOT_TAG, BOT_CONT, content))
+            await send_line(_format_dialog(ansi.BOT_TAG, ansi.BOT_CONT, content))
     await send_line("")
 
 
@@ -113,8 +98,8 @@ async def _activate_guest(ctx: SessionContext, send_line) -> None:
     ctx.reset_history()
     ctx.active = True
     await send_line("")
-    await send_line(f"{COLOR_SUCCESS}Modo invitado activado. Esta conversación no se guardará.{RESET}")
-    await send_line(f"{COLOR_INFO}Ya podés empezar a chatear.{RESET}")
+    await send_line(f"{ansi.COLOR_SUCCESS}Modo invitado activado. Esta conversación no se guardará.{ansi.RESET}")
+    await send_line(f"{ansi.COLOR_INFO}Ya podés empezar a chatear.{ansi.RESET}")
 
 
 async def _register_user(username: str, password: str, ctx: SessionContext, send_line) -> None:
@@ -125,21 +110,22 @@ async def _register_user(username: str, password: str, ctx: SessionContext, send
     ctx.reset_history()
     ctx.active = True
     await send_line("")
-    await send_line(f"{COLOR_SUCCESS}¡Bienvenido, {username}! Tu cuenta quedó creada.{RESET}")
+    await send_line(f"{ansi.COLOR_SUCCESS}¡Bienvenido, {username}! Tu cuenta quedó creada.{ansi.RESET}")
     await send_line(
-        f"{COLOR_INFO}Tus mensajes se guardarán. Usá {COLOR_USER}/clear{RESET}{COLOR_INFO} para borrar el historial cuando quieras.{RESET}"
+        f"{ansi.COLOR_INFO}Tus mensajes se guardarán. Usá {ansi.COLOR_USER}/clear{ansi.RESET}"
+        f"{ansi.COLOR_INFO} para borrar el historial cuando quieras.{ansi.RESET}"
     )
 
 
 async def _login_user(username: str, password: str, ctx: SessionContext, send_line) -> None:
     record = await chat_store.get_user(username)
     if not record:
-        await send_line("Usuario inexistente. Registrate con /register.")
+        await send_line(f"{ansi.COLOR_WARN}Usuario inexistente. Registrate con /register.{ansi.RESET}")
         return
 
     expected_hash = record.get("password_hash", "")
     if not expected_hash or expected_hash != _hash_password(password):
-        await send_line("Clave incorrecta. Intentá nuevamente.")
+        await send_line(f"{ansi.COLOR_WARN}Clave incorrecta. Intentá nuevamente.{ansi.RESET}")
         return
 
     client_id = record.get("client_id") or _build_client_id()
@@ -154,11 +140,11 @@ async def _login_user(username: str, password: str, ctx: SessionContext, send_li
         ctx.reset_history()
     ctx.active = True
     await send_line("")
-    await send_line(f"{COLOR_SUCCESS}¡Hola de nuevo, {username}! Historial restaurado.{RESET}")
+    await send_line(f"{ansi.COLOR_SUCCESS}¡Hola de nuevo, {username}! Historial restaurado.{ansi.RESET}")
     await _send_history(send_line, ctx.history)
     await send_line(
-        f"{COLOR_INFO}Cuando quieras, usá {COLOR_USER}/clear{RESET}{COLOR_INFO} para vaciar el historial o "
-        f"{COLOR_USER}/quit{RESET}{COLOR_INFO} para salir.{RESET}"
+        f"{ansi.COLOR_INFO}Cuando quieras, usá {ansi.COLOR_USER}/clear{ansi.RESET}{ansi.COLOR_INFO} para vaciar el historial o "
+        f"{ansi.COLOR_USER}/quit{ansi.RESET}{ansi.COLOR_INFO} para salir.{ansi.RESET}"
     )
 
 
@@ -173,25 +159,25 @@ async def _handle_auth_command(message: str, ctx: SessionContext, send_line) -> 
         parts = message.split()
         if len(parts) != 3:
             await send_line("")
-            await send_line(f"{COLOR_WARN}Uso: /register <usuario> <clave>{RESET}")
+            await send_line(f"{ansi.COLOR_WARN}Uso: /register <usuario> <clave>{ansi.RESET}")
             return
         _, user, password = parts
         try:
             await _register_user(user, password, ctx, send_line)
         except ValueError:
             await send_line("")
-            await send_line(f"{COLOR_WARN}Ese usuario ya existe. Probá con otro nombre o logueate con /login.{RESET}")
+            await send_line(f"{ansi.COLOR_WARN}Ese usuario ya existe. Probá con otro nombre o logueate con /login.{ansi.RESET}")
         except Exception as exc:  
             logging.exception("Error registrando usuario %s: %s", user, exc)
             await send_line("")
-            await send_line(f"{COLOR_ERROR}No pude registrar el usuario ahora. Intentá más tarde.{RESET}")
+            await send_line(f"{ansi.COLOR_ERROR}No pude registrar el usuario ahora. Intentá más tarde.{ansi.RESET}")
         return
 
     if lowered.startswith("/login"):
         parts = message.split()
         if len(parts) != 3:
             await send_line("")
-            await send_line(f"{COLOR_WARN}Uso: /login <usuario> <clave>{RESET}")
+            await send_line(f"{ansi.COLOR_WARN}Uso: /login <usuario> <clave>{ansi.RESET}")
             return
         _, user, password = parts
         try:
@@ -199,12 +185,12 @@ async def _handle_auth_command(message: str, ctx: SessionContext, send_line) -> 
         except Exception as exc:  
             logging.exception("Error consultando usuario %s: %s", user, exc)
             await send_line("")
-            await send_line(f"{COLOR_ERROR}No pude verificar tus datos. Probá de nuevo más tarde.{RESET}")
+            await send_line(f"{ansi.COLOR_ERROR}No pude verificar tus datos. Probá de nuevo más tarde.{ansi.RESET}")
         return
 
     await send_line("")
     await send_line(
-        f"{COLOR_WARN}Necesitás indicar si sos invitado (/guest) o iniciar sesión (/login) o registrarte (/register).{RESET}"
+        f"{ansi.COLOR_WARN}Necesitás indicar si sos invitado (/guest) o iniciar sesión (/login) o registrarte (/register).{ansi.RESET}"
     )
 
 
@@ -213,12 +199,12 @@ async def _clear_history(ctx: SessionContext, send_line) -> None:
     if ctx.persist_history and ctx.client_id:
         try:
             await chat_store.clear_history(ctx.client_id)
-            await send_line(f"{COLOR_SUCCESS}Historial guardado eliminado.{RESET}")
+            await send_line(f"{ansi.COLOR_SUCCESS}Historial guardado eliminado.{ansi.RESET}")
         except Exception as exc:  
             logging.exception("Error limpiando historial de %s: %s", ctx.client_id, exc)
-            await send_line(f"{COLOR_ERROR}No pude borrar el historial. Intentá más tarde.{RESET}")
+            await send_line(f"{ansi.COLOR_ERROR}No pude borrar el historial. Intentá más tarde.{ansi.RESET}")
     else:
-        await send_line(f"{COLOR_INFO}Historial temporal reiniciado (modo invitado).{RESET}")
+        await send_line(f"{ansi.COLOR_INFO}Historial temporal reiniciado (modo invitado).{ansi.RESET}")
 
 
 async def _persist_message(ctx: SessionContext, role: str, content: str) -> None:
