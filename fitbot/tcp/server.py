@@ -12,14 +12,6 @@ from fitbot import chat_store
 from fitbot import chatbot
 from fitbot.tcp import ansi
 
-WELCOME = (
-    f"{ansi.COLOR_BOT}{ansi.BOLD}¡Hola! Soy FitBot (modo TCP){ansi.RESET}\n"
-    f"{ansi.COLOR_INFO}Contame en qué puedo ayudarte. Recordá: "
-    f"{ansi.COLOR_USER}/clear{ansi.RESET}{ansi.COLOR_INFO} borra el historial guardado y "
-    f"{ansi.COLOR_USER}/quit{ansi.RESET}{ansi.COLOR_INFO} termina la sesión.{ansi.RESET}"
-)
-FALLBACK = f"{ansi.COLOR_ERROR}No pude generar respuesta ahora. Intentá nuevamente.{ansi.RESET}"
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
@@ -70,9 +62,9 @@ async def _generate_reply(history: List[Dict[str, str]]) -> str:
                 fragments.append(delta)
     except Exception as exc:  
         logging.error("Error generando respuesta en modo TCP: %s", exc)
-        return FALLBACK
+        return ansi.FALLBACK_MESSAGE
     text = "".join(fragments).strip()
-    return text or FALLBACK
+    return text or ansi.FALLBACK_MESSAGE
 
 
 async def _send_history(send_line, entries: List[Dict[str, str]]) -> None:
@@ -222,7 +214,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         writer.write((text + "\n").encode("utf-8", errors="replace"))
         await writer.drain()
 
-    await send_line(WELCOME)
+    await send_line(ansi.WELCOME_MESSAGE)
     await send_line("")
 
     try:

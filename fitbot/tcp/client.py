@@ -2,14 +2,8 @@ import argparse
 import asyncio
 import getpass
 import sys
-from typing import List
 
-RESET = "\033[0m"
-BOLD = "\033[1m"
-COLOR_INFO = "\033[94m"
-COLOR_SUCCESS = "\033[92m"
-COLOR_WARN = "\033[93m"
-COLOR_PROMPT = "\033[96m"
+from fitbot.tcp import ansi
 
 SUCCESS_MARKERS = [
     "modo invitado activado",
@@ -33,36 +27,36 @@ FAILURE_MARKERS = [
 
 def _prompt_initial_command() -> str:
     menu = (
-        f"\n{COLOR_INFO}{BOLD}Elegí cómo querés iniciar:{RESET}\n"
-        f"  {COLOR_SUCCESS}[1]{RESET} Registrarme (usuario nuevo)\n"
-        f"  {COLOR_SUCCESS}[2]{RESET} Iniciar sesión\n"
-        f"  {COLOR_SUCCESS}[3]{RESET} Continuar como invitado "
-        f"{COLOR_WARN}(no se guarda historial){RESET}\n"
-        f"  {COLOR_SUCCESS}[q]{RESET} Salir\n"
+        f"\n{ansi.COLOR_INFO}{ansi.BOLD}Elegí cómo querés iniciar:{ansi.RESET}\n"
+        f"  {ansi.COLOR_SUCCESS}[1]{ansi.RESET} Registrarme (usuario nuevo)\n"
+        f"  {ansi.COLOR_SUCCESS}[2]{ansi.RESET} Iniciar sesión\n"
+        f"  {ansi.COLOR_SUCCESS}[3]{ansi.RESET} Continuar como invitado "
+        f"{ansi.COLOR_WARN}(no se guarda historial){ansi.RESET}\n"
+        f"  {ansi.COLOR_SUCCESS}[q]{ansi.RESET} Salir\n"
     )
     while True:
         print(menu, end="")
-        choice = input(f"{COLOR_PROMPT}> {RESET}").strip().lower()
+        choice = input(ansi.PROMPT_ARROW).strip().lower()
         if choice in {"1", "r", "register", "registro"}:
-            username = input(f"{COLOR_INFO}Usuario:{RESET} ").strip()
+            username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
             if not username or " " in username:
-                print(f"{COLOR_WARN}El usuario no puede estar vacío ni contener espacios.{RESET}")
+                print(f"{ansi.COLOR_WARN}El usuario no puede estar vacío ni contener espacios.{ansi.RESET}")
                 continue
-            password = getpass.getpass(f"{COLOR_INFO}Clave:{RESET} ").strip()
+            password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
             if not password or " " in password:
-                print(f"{COLOR_WARN}La clave no puede estar vacía ni contener espacios.{RESET}")
+                print(f"{ansi.COLOR_WARN}La clave no puede estar vacía ni contener espacios.{ansi.RESET}")
                 continue
             return f"/register {username} {password}"
         if choice in {"2", "l", "login"}:
-            username = input(f"{COLOR_INFO}Usuario:{RESET} ").strip()
-            password = getpass.getpass(f"{COLOR_INFO}Clave:{RESET} ").strip()
+            username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
+            password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
             return f"/login {username} {password}"
         if choice in {"3", "g", "guest", "invitado"}:
             return "/guest"
         if choice in {"q", "quit", "exit", "salir"}:
-            print(f"{COLOR_INFO}Hasta la próxima.{RESET}")
+            print(f"{ansi.COLOR_INFO}Hasta la próxima.{ansi.RESET}")
             sys.exit(0)
-        print(f"{COLOR_WARN}Opción no válida. Probá otra vez.{RESET}")
+        print(f"{ansi.COLOR_WARN}Opción no válida. Probá otra vez.{ansi.RESET}")
 
 
 async def _drain_initial_lines(reader: asyncio.StreamReader, timeout: float = 0.15) -> None:
