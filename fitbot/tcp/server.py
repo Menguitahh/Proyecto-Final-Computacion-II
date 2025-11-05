@@ -242,7 +242,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
             if lowered in {"/quit", "/exit"}:
                 await send_line("")
-                await send_line(_format_dialog(BOT_TAG, BOT_CONT, "¡Hasta la próxima! 💪"))
+                await send_line(_format_dialog(ansi.BOT_TAG, ansi.BOT_CONT, "¡Hasta la próxima! 💪"))
                 break
 
             if lowered == "/clear":
@@ -258,7 +258,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             session.remember("assistant", reply)
 
             await send_line("")
-            await send_line(_format_dialog(BOT_TAG, BOT_CONT, reply))
+            await send_line(_format_dialog(ansi.BOT_TAG, ansi.BOT_CONT, reply))
     except asyncio.CancelledError:
         pass
     except Exception as exc:  
