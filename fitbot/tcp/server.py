@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import secrets
+import socket
 from contextlib import suppress
 from typing import Dict, List
 
@@ -91,11 +92,35 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         logging.info("Cliente TCP desconectado: %s", addr)
 
 
+def _detect_default_host() -> str:
+    """Return a host IP suitable for external clients, falling back to all interfaces."""
+    try:
+        hostname_ip = socket.gethostbyname(socket.gethostname())
+        if hostname_ip and not hostname_ip.startswith("127."):
+            return hostname_ip
+    except Exception as exc:
+        logging.debug("Fallo al resolver hostname local: %s", exc)
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("8.8.8.8", 80))
+            ip = probe.getsockname()[0]
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception as exc:
+        logging.debug("Fallo al detectar la IP local: %s", exc)
+
+    logging.warning("No se pudo detectar IP local no loopback, usando 0.0.0.0")
+    return "0.0.0.0"
+
+
 async def main() -> None:
     import argparse
 
+    default_host = _detect_default_host()
+
     parser = argparse.ArgumentParser(description="Servidor TCP de FitBot")
-    parser.add_argument("--host", default="127.0.0.1", help="Dirección donde escuchar (default: 127.0.0.1)")
+    parser.add_argument("--host", default=default_host, help="Dirección donde escuchar (default: %(default)s)")
     parser.add_argument("--port", type=int, default=9000, help="Puerto TCP (default: 9000)")
     args = parser.parse_args()
 
