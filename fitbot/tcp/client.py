@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import getpass
 import sys
+from typing import Optional
 
 from fitbot.tcp import ansi
 
@@ -34,29 +35,60 @@ def _prompt_initial_command() -> str:
         f"{ansi.COLOR_WARN}(no se guarda historial){ansi.RESET}\n"
         f"  {ansi.COLOR_SUCCESS}[q]{ansi.RESET} Salir\n"
     )
+
+    option_aliases = {
+        "register": {"1", "r", "register", "registro"},
+        "login": {"2", "l", "login"},
+        "guest": {"3", "g", "guest", "invitado"},
+        "quit": {"q", "quit", "exit", "salir"},
+    }
+
+    alias_lookup = {
+        alias: option for option, aliases in option_aliases.items() for alias in aliases
+    }
+
+    def handle_register() -> Optional[str]:
+        username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
+        if not username or " " in username:
+            print(f"{ansi.COLOR_WARN}El usuario no puede estar vacío ni contener espacios.{ansi.RESET}")
+            return None
+        password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
+        if not password or " " in password:
+            print(f"{ansi.COLOR_WARN}La clave no puede estar vacía ni contener espacios.{ansi.RESET}")
+            return None
+        return f"/register {username} {password}"
+
+    def handle_login() -> str:
+        username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
+        password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
+        return f"/login {username} {password}"
+
+    def handle_guest() -> str:
+        return "/guest"
+
+    def handle_quit() -> None:
+        print(f"{ansi.COLOR_INFO}Hasta la próxima.{ansi.RESET}")
+        sys.exit(0)
+
+    handlers = {
+        "register": handle_register,
+        "login": handle_login,
+        "guest": handle_guest,
+        "quit": handle_quit,
+    }
+
     while True:
         print(menu, end="")
         choice = input(ansi.PROMPT_ARROW).strip().lower()
-        if choice in {"1", "r", "register", "registro"}:
-            username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
-            if not username or " " in username:
-                print(f"{ansi.COLOR_WARN}El usuario no puede estar vacío ni contener espacios.{ansi.RESET}")
-                continue
-            password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
-            if not password or " " in password:
-                print(f"{ansi.COLOR_WARN}La clave no puede estar vacía ni contener espacios.{ansi.RESET}")
-                continue
-            return f"/register {username} {password}"
-        if choice in {"2", "l", "login"}:
-            username = input(f"{ansi.COLOR_INFO}Usuario:{ansi.RESET} ").strip()
-            password = getpass.getpass(f"{ansi.COLOR_INFO}Clave:{ansi.RESET} ").strip()
-            return f"/login {username} {password}"
-        if choice in {"3", "g", "guest", "invitado"}:
-            return "/guest"
-        if choice in {"q", "quit", "exit", "salir"}:
-            print(f"{ansi.COLOR_INFO}Hasta la próxima.{ansi.RESET}")
-            sys.exit(0)
-        print(f"{ansi.COLOR_WARN}Opción no válida. Probá otra vez.{ansi.RESET}")
+        handler_key = alias_lookup.get(choice)
+        if not handler_key:
+            print(f"{ansi.COLOR_WARN}Opción no válida. Probá otra vez.{ansi.RESET}")
+            continue
+
+        handler = handlers[handler_key]
+        result = handler()
+        if result:
+            return result
 
 
 async def _drain_initial_lines(reader: asyncio.StreamReader, timeout: float = 0.15) -> None:
