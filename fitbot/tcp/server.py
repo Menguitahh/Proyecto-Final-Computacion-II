@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import multiprocessing as mp
+import os
 import secrets
 import socket
 from contextlib import suppress
@@ -13,6 +14,13 @@ from fitbot import chatbot
 from fitbot.tcp import ansi
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+DEFAULT_IDLE_TIMEOUT = 300
+try:
+    CLIENT_IDLE_TIMEOUT = max(30, int(os.getenv("FITBOT_TCP_IDLE_TIMEOUT", str(DEFAULT_IDLE_TIMEOUT))))
+except ValueError:
+    logging.warning("FITBOT_TCP_IDLE_TIMEOUT inválido. Usando %s segundos por defecto.", DEFAULT_IDLE_TIMEOUT)
+    CLIENT_IDLE_TIMEOUT = DEFAULT_IDLE_TIMEOUT
 
 
 def _build_client_id() -> str:
@@ -210,16 +218,38 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
     session = SessionContext()
 
+    outbound: asyncio.Queue[str] = asyncio.Queue()
+
+    async def writer_worker() -> None:
+        try:
+            while True:
+                line = await outbound.get()
+                if line is None:
+                    break
+                writer.write((line + "\n").encode("utf-8", errors="replace"))
+                await writer.drain()
+        except Exception as exc:
+            logging.debug("Error enviando datos a %s: %s", addr, exc)
+
+    writer_task = asyncio.create_task(writer_worker())
+
     async def send_line(text: str) -> None:
-        writer.write((text + "\n").encode("utf-8", errors="replace"))
-        await writer.drain()
+        await outbound.put(text)
 
     await send_line(ansi.WELCOME_MESSAGE)
     await send_line("")
 
     try:
         while True:
-            data = await reader.readline()
+            try:
+                data = await asyncio.wait_for(reader.readline(), timeout=CLIENT_IDLE_TIMEOUT)
+            except asyncio.TimeoutError:
+                await send_line("")
+                await send_line(
+                    f"{ansi.COLOR_WARN}Conexión cerrada por inactividad (> {CLIENT_IDLE_TIMEOUT} s).{ansi.RESET}"
+                )
+                logging.info("Cliente %s desconectado por inactividad", addr)
+                break
             if not data:
                 break
             message = data.decode("utf-8", errors="replace").strip()
@@ -258,6 +288,9 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         with suppress(Exception):
             await send_line("FitBot: Ocurrió un error inesperado. Intentalo más tarde.")
     finally:
+        with suppress(Exception):
+            await outbound.put(None)
+            await writer_task
         try:
             writer.close()
             await writer.wait_closed()

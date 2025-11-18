@@ -151,10 +151,11 @@ async def run_client(host: str, port: int, auto: bool = True) -> None:
     async def send_task() -> None:
         loop = asyncio.get_running_loop()
         while True:
-            line = await loop.run_in_executor(None, sys.stdin.readline)
-            if not line:
+            try:
+                line = await loop.run_in_executor(None, lambda: input(ansi.PROMPT_ARROW))
+            except EOFError:
                 break
-            writer.write(line.encode("utf-8", errors="replace"))
+            writer.write((line + "\n").encode("utf-8", errors="replace"))
             await writer.drain()
             if line.strip().lower() in {"/quit", "/exit"}:
                 break
