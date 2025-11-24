@@ -152,7 +152,7 @@ async def run_client(host: str, port: int, auto: bool = True) -> None:
         loop = asyncio.get_running_loop()
         while True:
             try:
-                line = await loop.run_in_executor(None, lambda: input(ansi.PROMPT_ARROW))
+                line = await loop.run_in_executor(None, lambda: input(ansi.PROMPT_ARROW)) #executor para evitar bloqueo y recv_task siga recibiendo del servidor
             except EOFError:
                 break
             writer.write((line + "\n").encode("utf-8", errors="replace"))

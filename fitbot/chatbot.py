@@ -63,12 +63,12 @@ def _build_async_client() -> AsyncOpenAI:
     )
 
 
-_last_check_ts: float = 0.0
-_last_check_ok: bool = False
-_resolved_model: Optional[str] = None
+_last_check_ts: float = 0.0 #Tiempo del ultimo chequeo
+_last_check_ok: bool = False #Estado del ultimo chequeo
+_resolved_model: Optional[str] = None #Modelo resuelto
 
 
-def _extract_model_ids(items: Iterable) -> List[str]:
+def _extract_model_ids(items: Iterable) -> List[str]: #Extrae los ids de los modelos disponibles
     ids: List[str] = []
     for item in items:
         identifier = getattr(item, "id", None)
@@ -80,7 +80,7 @@ def _extract_model_ids(items: Iterable) -> List[str]:
     return ids
 
 
-def _list_available_models() -> Sequence[str]:
+def _list_available_models() -> Sequence[str]: #Lista los modelos disponibles
     client = _build_sync_client()
     try:
         response = client.models.list()
@@ -93,7 +93,7 @@ def _list_available_models() -> Sequence[str]:
     return _extract_model_ids(list(data))
 
 
-def _resolve_model() -> str:
+def _resolve_model() -> str: #Resuelve el modelo
     global _resolved_model
     if _resolved_model:
         return _resolved_model
@@ -126,8 +126,7 @@ def _resolve_model() -> str:
     raise RuntimeError("Groq no publicó modelos disponibles para esta API key")
 
 
-def is_client_available() -> bool:
-    """Devuelve True si el proveedor remoto de IA estuvo disponible recientemente."""
+def is_client_available() -> bool: #Devuelve True si el proveedor remoto de IA estuvo disponible recientemente.
     global _last_check_ts, _last_check_ok
     now = time.monotonic()
     if now - _last_check_ts <= CLIENT_CHECK_TTL:
@@ -149,8 +148,7 @@ def is_client_available() -> bool:
     return _last_check_ok
 
 
-async def astream_chat_completion(messages: List[Dict[str, str]]) -> AsyncIterator[str]:
-    """Itera fragmentos de texto del modelo de manera asíncrona."""
+async def astream_chat_completion(messages: List[Dict[str, str]]) -> AsyncIterator[str]: #Itera fragmentos de texto del modelo de manera asíncrona.
     if not AI_API_KEY:
         raise RuntimeError(
             "AI_API_KEY no está configurada. Registrate en Groq (gratuito) y exporta AI_API_KEY o GROQ_API_KEY."

@@ -300,7 +300,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
 
 def _detect_default_host() -> str:
-    """Return a host IP suitable for external clients, falling back to all interfaces."""
     try:
         hostname_ip = socket.gethostbyname(socket.gethostname())
         if hostname_ip and not hostname_ip.startswith("127."):

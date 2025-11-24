@@ -8,15 +8,16 @@ import redis.asyncio as redis
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+#nombres de las tablas en redis
 _SESSIONS_KEY = "fitbot:sessions"
 _USERS_KEY = "fitbot:users"
 _MESSAGES_KEY_FMT = "fitbot:session:{client_id}:messages"
 _WORKOUTS_KEY_FMT = "fitbot:session:{client_id}:workouts"
 _USER_KEY_FMT = "fitbot:user:{username}"
 
-_redis: Optional[redis.Redis] = None
+_redis: Optional[redis.Redis] = None #Cliente de redis
 
-
+#funciones para obtener las claves de redis
 def _messages_key(client_id: str) -> str:
     return _MESSAGES_KEY_FMT.format(client_id=client_id)
 
@@ -32,7 +33,7 @@ def _user_key(username: str) -> str:
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
+#Conexion a redis
 async def init_db(url: Optional[str] = None, client: Optional[redis.Redis] = None) -> None:
     global _redis
     if client is not None:
@@ -52,19 +53,19 @@ async def close() -> None:
         finally:
             _redis = None
 
-
+#funcion para obtener el cliente de redis
 def _require_client(client: Optional[redis.Redis] = None) -> redis.Redis:
     conn = client or _redis
     if conn is None:
         raise RuntimeError("Redis no inicializado. Llamá chat_store.init_db() en el arranque.")
     return conn
 
-
+#funcion para insertar o actualizar una sesion
 async def upsert_session(client_id: str, client: Optional[redis.Redis] = None) -> None:
     conn = _require_client(client)
     await conn.sadd(_SESSIONS_KEY, client_id)
 
-
+#funcion para insertar un mensaje
 async def append_message(
     client_id: str,
     role: str,
@@ -146,7 +147,7 @@ async def clear_history(client_id: str, client: Optional[redis.Redis] = None) ->
     conn = _require_client(client)
     await conn.delete(_messages_key(client_id))
 
-
+#funcion para registrar un workout
 async def log_workout(client_id: str, entry: str, client: Optional[redis.Redis] = None) -> None:
     conn = _require_client(client)
     payload = json.dumps({"entry": entry, "created_at": _utc_now()})
