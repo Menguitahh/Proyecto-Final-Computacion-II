@@ -147,30 +147,3 @@ async def clear_history(client_id: str, client: Optional[redis.Redis] = None) ->
     conn = _require_client(client)
     await conn.delete(_messages_key(client_id))
 
-#funcion para registrar un workout
-async def log_workout(client_id: str, entry: str, client: Optional[redis.Redis] = None) -> None:
-    conn = _require_client(client)
-    payload = json.dumps({"entry": entry, "created_at": _utc_now()})
-    await conn.rpush(_workouts_key(client_id), payload)
-
-
-async def get_workouts(
-    client_id: str,
-    limit: int = 10,
-    client: Optional[redis.Redis] = None,
-) -> List[Dict[str, Any]]:
-    conn = _require_client(client)
-    raw_entries = await conn.lrange(_workouts_key(client_id), -limit, -1)
-    workouts: List[Dict[str, Any]] = []
-    for raw in raw_entries:
-        try:
-            entry = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        workouts.append(
-            {
-                "entry": entry.get("entry", ""),
-                "created_at": entry.get("created_at"),
-            }
-        )
-    return workouts

@@ -90,7 +90,7 @@ def _prompt_initial_command() -> str:
         if result:
             return result
 
-
+#! Lee todo lo que manda el servidor al conectar (bienvenida) hasta que hay un silencio de 0.15s.
 async def _drain_initial_lines(reader: asyncio.StreamReader, timeout: float = 0.15) -> None:
     while True:
         try:
@@ -102,6 +102,7 @@ async def _drain_initial_lines(reader: asyncio.StreamReader, timeout: float = 0.
         print(line.decode("utf-8", errors="replace"), end="")
 
 
+#! Maneja el bucle de login/registro: envía credenciales y espera OK o Error del servidor.
 async def _auth_handshake(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> bool:
     while True:
         command = _prompt_initial_command()

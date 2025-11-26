@@ -218,7 +218,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
     session = SessionContext()
 
-    outbound: asyncio.Queue[str] = asyncio.Queue()
+    outbound: asyncio.Queue[str] = asyncio.Queue() #Cola de salida que lanza tarea en segundo plano
 
     async def writer_worker() -> None:
         try:
@@ -340,7 +340,7 @@ async def _serve(host: str, port: int, reuse_port: bool) -> None:
 
     try:
         async with server:
-            await server.serve_forever()
+            await server.serve_forever() #Servidor escucha infinitamente
     finally:
         await chat_store.close()
 
@@ -386,7 +386,7 @@ async def main() -> None:
         return
 
     logging.info("Iniciando %s workers en %s:%s con reuse_port", workers, args.host, args.port)
-    ctx = mp.get_context("spawn")
+    ctx = mp.get_context("spawn") #procesos hijos empiecen limpios
     procs = [_spawn_worker(ctx, args.host, args.port, reuse_port) for _ in range(workers)]
 
     try:
